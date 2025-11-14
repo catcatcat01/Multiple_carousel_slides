@@ -80,7 +80,17 @@ function CarouselView({ config, isConfig }: { config: ICarouselConfig, isConfig:
   const toPlainText = (val: any): string => {
     if (val === null || val === undefined) return '';
     const type = typeof val;
-    if (type === 'string') return val as string;
+    if (type === 'string') {
+      const s = (val as string).trim();
+      if ((s.startsWith('[') && s.endsWith(']')) || (s.startsWith('{') && s.endsWith('}'))) {
+        try {
+          return toPlainText(JSON.parse(s));
+        } catch {
+          return s;
+        }
+      }
+      return s;
+    }
     if (type === 'number' || type === 'boolean') return String(val);
     if (Array.isArray(val)) {
       const parts = val.map((item) => {

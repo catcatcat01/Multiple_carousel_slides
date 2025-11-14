@@ -42,7 +42,7 @@
 .carousel-slide {
     display: grid;
     grid-template-columns: 1fr;
-    grid-template-rows: auto auto auto;
+    grid-template-rows: 1fr auto auto;
     align-items: center;
     justify-items: center;
     gap: 12px;
