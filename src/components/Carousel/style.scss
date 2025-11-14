@@ -33,7 +33,8 @@
 }
 
 .carousel-container {
-    width: 100vw;
+    width: 100%;
+    height: 100vh;
     max-width: 100%;
     overflow: hidden;
 }
@@ -49,10 +50,10 @@
 }
 
 .carousel-image {
-    max-width: 80vw;
-    max-height: 60vh;
-    object-fit: contain;
-    border-radius: 8px;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 0;
 }
 
 .carousel-title {

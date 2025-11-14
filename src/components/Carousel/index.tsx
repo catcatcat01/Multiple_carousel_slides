@@ -77,6 +77,37 @@ function CarouselView({ config, isConfig }: { config: ICarouselConfig, isConfig:
 
   const color = config.color || 'var(--ccm-chart-N700)';
 
+  const toPlainText = (val: any): string => {
+    if (val === null || val === undefined) return '';
+    const type = typeof val;
+    if (type === 'string') return val as string;
+    if (type === 'number' || type === 'boolean') return String(val);
+    if (Array.isArray(val)) {
+      const parts = val.map((item) => {
+        if (item === null || item === undefined) return '';
+        const it = typeof item;
+        if (it === 'string' || it === 'number' || it === 'boolean') return String(item);
+        if (it === 'object') {
+          if ('text' in item && item.text != null) return String((item as any).text);
+          if ('name' in item && item.name != null) return String((item as any).name);
+          if ('title' in item && item.title != null) return String((item as any).title);
+          if ('value' in item && item.value != null) return String((item as any).value);
+        }
+        return '';
+      }).filter(Boolean);
+      return parts.join(' ');
+    }
+    if (type === 'object') {
+      const obj = val as any;
+      if ('text' in obj && obj.text != null) return String(obj.text);
+      if ('name' in obj && obj.name != null) return String(obj.name);
+      if ('title' in obj && obj.title != null) return String(obj.title);
+      if ('value' in obj && obj.value != null) return String(obj.value);
+      try { return JSON.stringify(val); } catch { return ''; }
+    }
+    return String(val);
+  };
+
   const loadData = async () => {
     try {
       let table: ITable | null = null;
@@ -117,13 +148,13 @@ function CarouselView({ config, isConfig }: { config: ICarouselConfig, isConfig:
         if (titleField) {
           try {
             const val = await (titleField as any).getValue(rid);
-            title = typeof val === 'string' ? val : JSON.stringify(val ?? '');
+            title = toPlainText(val);
           } catch (_) {}
         }
         if (descField) {
           try {
             const val = await (descField as any).getValue(rid);
-            desc = typeof val === 'string' ? val : JSON.stringify(val ?? '');
+            desc = toPlainText(val);
           } catch (_) {}
         }
         if (imageField) {
