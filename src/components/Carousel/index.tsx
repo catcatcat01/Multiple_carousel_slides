@@ -49,7 +49,16 @@ export default function Carousel(props: { bgColor: string }) {
     }
     const { customConfig } = res || {};
     if (customConfig) {
-      setConfig(customConfig as ICarouselConfig);
+      const normalize = (v?: string) => (v === 'undefined' || v === 'null' || v === '' ? undefined : v);
+      const cfg = customConfig as ICarouselConfig;
+      setConfig({
+        ...cfg,
+        tableId: normalize(cfg.tableId),
+        viewId: normalize(cfg.viewId),
+        titleFieldId: normalize(cfg.titleFieldId),
+        descFieldId: normalize(cfg.descFieldId),
+        imageFieldId: normalize(cfg.imageFieldId),
+      });
       timer.current = setTimeout(() => {
         dashboard.setRendered();
       }, 3000);
@@ -281,19 +290,19 @@ function ConfigPanel({ t, config, setConfig }: { t: any, config: ICarouselConfig
     <div className='config-panel'>
       <div className='form'>
         <Item label={t('carousel.label.table')}>
-          <Select value={config.tableId} optionList={tables} onChange={(v) => setConfig({ ...config, tableId: String(v) })} style={{ width: '100%' }} />
+          <Select value={config.tableId} optionList={tables} onChange={(v) => setConfig({ ...config, tableId: v == null ? undefined : String(v) })} style={{ width: '100%' }} />
         </Item>
         <Item label={t('carousel.label.view')}>
-          <Select value={config.viewId} optionList={views} onChange={(v) => setConfig({ ...config, viewId: String(v) })} style={{ width: '100%' }} />
+          <Select value={config.viewId} optionList={views} onChange={(v) => setConfig({ ...config, viewId: v == null ? undefined : String(v) })} style={{ width: '100%' }} />
         </Item>
         <Item label={t('carousel.label.titleField')}>
-          <Select value={config.titleFieldId} optionList={fieldOptions} onChange={(v) => setConfig({ ...config, titleFieldId: String(v) })} style={{ width: '100%' }} />
+          <Select value={config.titleFieldId} optionList={fieldOptions} onChange={(v) => setConfig({ ...config, titleFieldId: v == null ? undefined : String(v) })} style={{ width: '100%' }} />
         </Item>
         <Item label={t('carousel.label.descField')}>
-          <Select value={config.descFieldId} optionList={fieldOptions} onChange={(v) => setConfig({ ...config, descFieldId: String(v) })} style={{ width: '100%' }} />
+          <Select value={config.descFieldId} optionList={fieldOptions} onChange={(v) => setConfig({ ...config, descFieldId: v == null ? undefined : String(v) })} style={{ width: '100%' }} />
         </Item>
         <Item label={t('carousel.label.imageField')}>
-          <Select value={config.imageFieldId} optionList={imageFieldOptions} onChange={(v) => setConfig({ ...config, imageFieldId: String(v) })} style={{ width: '100%' }} />
+          <Select value={config.imageFieldId} optionList={imageFieldOptions} onChange={(v) => setConfig({ ...config, imageFieldId: v == null ? undefined : String(v) })} style={{ width: '100%' }} />
         </Item>
         <Item label={t('carousel.label.limit')}>
           <InputNumber value={config.limit} min={1} max={50} onChange={(v) => setConfig({ ...config, limit: Number(v) || 10 })} style={{ width: '100%' }} />
