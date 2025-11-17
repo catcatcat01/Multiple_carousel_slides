@@ -127,6 +127,24 @@ function CarouselView({ config, isConfig }: { config: ICarouselConfig, isConfig:
     return String(val);
   };
 
+  const pickAttachmentUrl = (val: any): string | undefined => {
+    if (val == null) return undefined;
+    const arr = Array.isArray(val) ? val : [val];
+    for (const item of arr) {
+      if (!item || typeof item !== 'object') continue;
+      const cand = (item as any).url
+        || (item as any).fsUrl
+        || (item as any).fs_url
+        || (item as any).thumbnailUrl
+        || (item as any).thumbnail_url
+        || (item as any).picUrl
+        || (item as any).previewUrl
+        || (item as any).preview_url;
+      if (typeof cand === 'string' && cand) return cand;
+    }
+    return undefined;
+  };
+
   const loadData = async () => {
     try {
       let table: ITable | null = null;
@@ -169,30 +187,39 @@ function CarouselView({ config, isConfig }: { config: ICarouselConfig, isConfig:
 
       const result: ISlide[] = [];
       for (const rid of takeIds) {
-        let title = '';
-        let desc = '';
-        let imageUrl: string | undefined = undefined;
+        try {
+          let title = '';
+          let desc = '';
+          let imageUrl: string | undefined = undefined;
 
-        if (titleField) {
-          try {
-            const val = await (titleField as any).getValue(rid);
-            title = toPlainText(val);
-          } catch (_) {}
-        }
-        if (descField) {
-          try {
-            const val = await (descField as any).getValue(rid);
-            desc = toPlainText(val);
-          } catch (_) {}
-        }
-        if (imageField) {
-          try {
-            const urls: string[] = await imageField.getAttachmentUrls(rid);
-            imageUrl = urls && urls.length ? urls[0] : undefined;
-          } catch (_) {}
-        }
+          if (titleField) {
+            try {
+              const val = await (titleField as any).getValue(rid);
+              title = toPlainText(val);
+            } catch (_) {}
+          }
+          if (descField) {
+            try {
+              const val = await (descField as any).getValue(rid);
+              desc = toPlainText(val);
+            } catch (_) {}
+          }
+          if (imageField) {
+            try {
+              const urls: string[] = await imageField.getAttachmentUrls(rid);
+              imageUrl = urls && urls.length ? urls[0] : undefined;
+            } catch (_) {
+              try {
+                const raw = await (imageField as any).getValue(rid);
+                imageUrl = pickAttachmentUrl(raw);
+              } catch (_) {}
+            }
+          }
 
-        result.push({ id: rid, title, desc, imageUrl });
+          result.push({ id: rid, title, desc, imageUrl });
+        } catch (_) {
+          result.push({ id: rid, title: '', desc: '', imageUrl: undefined });
+        }
       }
       setSlides(result);
       setIndex(0);
