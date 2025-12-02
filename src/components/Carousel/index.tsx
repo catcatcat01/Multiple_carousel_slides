@@ -44,8 +44,27 @@ interface ISlide {
 
 export default function Carousel(props: { bgColor: string }) {
   const { t } = useTranslation();
-  const [appConfig, setAppConfig] = useState<IAppConfig>({ pages: [] });
-  const [currentPageId, setCurrentPageId] = useState<string | undefined>(undefined);
+  
+  // Initialize with a default page to prevent blank screen
+  const [appConfig, setAppConfig] = useState<IAppConfig>(() => {
+    const themeMode = (document.body.getAttribute('theme-mode') || '').toLowerCase();
+    const defaultColor = themeMode === 'dark' ? 'var(--ccm-chart-W500)' : 'var(--ccm-chart-N700)';
+    return {
+      pages: [{
+        id: `page-${Date.now()}`,
+        name: t('carousel.page') || '页面1',
+        limit: 10,
+        intervalMs: 3000,
+        refreshMs: 8000,
+        color: defaultColor,
+        showIndicators: true,
+        latestFirst: true,
+        preferViewOrder: true,
+      }]
+    };
+  });
+  
+  const [currentPageId, setCurrentPageId] = useState<string | undefined>(appConfig.pages[0].id);
 
   const isCreate = dashboard.state === DashboardState.Create;
 
@@ -55,7 +74,9 @@ export default function Carousel(props: { bgColor: string }) {
       clearTimeout(timer.current);
     }
     const { customConfig } = res || {};
-    if (customConfig) {
+    // Only update if customConfig exists and has pages. 
+    // If it's a new dashboard (no config), we keep our default initialization.
+    if (customConfig && customConfig.pages && customConfig.pages.length > 0) {
       const themeMode = (document.body.getAttribute('theme-mode') || '').toLowerCase();
       const defaultColor = themeMode === 'dark' ? 'var(--ccm-chart-W500)' : 'var(--ccm-chart-N700)';
       const normalize = (v?: string) => (v === 'undefined' || v === 'null' || v === '' ? undefined : v);
@@ -89,7 +110,8 @@ export default function Carousel(props: { bgColor: string }) {
         pages = [toPage(customConfig, 0)];
       }
       setAppConfig({ pages });
-      if (!currentPageId && pages.length) {
+      // If current page is not in the new list, switch to the first one
+      if (!currentPageId || !pages.find(p => p.id === currentPageId)) {
         setCurrentPageId(pages[0].id);
       }
       timer.current = setTimeout(() => {
@@ -101,28 +123,15 @@ export default function Carousel(props: { bgColor: string }) {
   useConfig(updateConfig);
 
   const currentPage = useMemo(() => (appConfig.pages && appConfig.pages.find(p => p.id === currentPageId)) || (appConfig.pages && appConfig.pages[0]), [appConfig, currentPageId]);
+  
+  // Show config if:
+  // 1. Dashboard is in Config mode
+  // 2. Dashboard is in Create mode
+  // 3. No pages exist
+  // 4. Current page has no tableId (not configured)
   const showConfig = (dashboard.state === DashboardState.Config) || isCreate || !(appConfig.pages && appConfig.pages.length) || !(currentPage && currentPage.tableId);
 
-  useEffect(() => {
-    if (!appConfig.pages || !appConfig.pages.length) {
-      const themeMode = (document.body.getAttribute('theme-mode') || '').toLowerCase();
-      const defaultColor = themeMode === 'dark' ? 'var(--ccm-chart-W500)' : 'var(--ccm-chart-N700)';
-      const id = `page-${Date.now()}`;
-      const page: IPageConfig = {
-        id,
-        name: t('carousel.page') || '页面',
-        limit: 10,
-        intervalMs: 3000,
-        refreshMs: 8000,
-        color: defaultColor,
-        showIndicators: true,
-        latestFirst: true,
-        preferViewOrder: true,
-      } as IPageConfig;
-      setAppConfig({ pages: [page] });
-      setCurrentPageId(id);
-    }
-  }, [appConfig.pages?.length]);
+  // Removed the useEffect that added default page, as we now initialize with it.
 
   return (
     <main style={{ backgroundColor: props.bgColor }} className={classnames({ 'main-config': showConfig, 'main': true })}>
@@ -635,7 +644,7 @@ function CarouselView({ config, isConfig }: { config: ICarouselConfig, isConfig:
     return (
       <div className='carousel-container'>
         <div className='carousel-slide'>
-          <div className='carousel-title' style={{ color }}>{t('carousel.preview.empty')}</div>
+          <div className='carousel-title' style={{ color }}>{t('carousel.preview.empty') || '请在右侧配置数据源'}</div>
         </div>
       </div>
     );
