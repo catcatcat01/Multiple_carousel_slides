@@ -12,6 +12,10 @@ const router = createHashRouter([
     path: '/',
     element: <App></App>
   },
+  {
+    path: '*',
+    element: <App></App>
+  }
 ])
 
 const root = ReactDOM.createRoot(

@@ -44,6 +44,7 @@ export default function LoadApp(props: { children: ReactElement }): ReactElement
   const [locale, setLocale] = useState(en_US);
 
   useEffect(() => {
+    if (!bitable || !bitable.bridge) return;
     bitable.bridge.getLanguage().then((v) => {
       if (v === 'zh') {
         setLocale(zh_CN);

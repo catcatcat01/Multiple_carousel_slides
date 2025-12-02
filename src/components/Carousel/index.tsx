@@ -66,7 +66,7 @@ export default function Carousel(props: { bgColor: string }) {
   
   const [currentPageId, setCurrentPageId] = useState<string | undefined>(appConfig.pages[0].id);
 
-  const isCreate = dashboard.state === DashboardState.Create;
+  const isCreate = dashboard && dashboard.state === DashboardState.Create;
 
   const timer = useRef<any>();
   const updateConfig = useCallback((res: any) => {
@@ -138,7 +138,7 @@ export default function Carousel(props: { bgColor: string }) {
   const currentPage = useMemo(() => (appConfig.pages && appConfig.pages.find(p => p.id === currentPageId)) || (appConfig.pages && appConfig.pages[0]), [appConfig, currentPageId]);
   
   // Force show config if logic suggests it, or if we are in a fallback state
-  const showConfig = (dashboard.state === DashboardState.Config) || isCreate || !(appConfig.pages && appConfig.pages.length) || !(currentPage && currentPage.tableId);
+  const showConfig = (dashboard && dashboard.state === DashboardState.Config) || isCreate || !(appConfig.pages && appConfig.pages.length) || !(currentPage && currentPage.tableId);
 
   // Removed the useEffect that added default page, as we now initialize with it.
 
