@@ -18,6 +18,7 @@ interface ICarouselConfig {
   imageFieldId?: string;
   timeFieldId?: string;
   latestFirst?: boolean;
+  preferViewOrder?: boolean;
   limit: number;
   intervalMs: number;
   refreshMs: number;
@@ -41,6 +42,7 @@ export default function Carousel(props: { bgColor: string }) {
     color: 'var(--ccm-chart-N700)',
     showIndicators: true,
     latestFirst: true,
+    preferViewOrder: true,
   });
 
   const isCreate = dashboard.state === DashboardState.Create;
@@ -218,7 +220,8 @@ function CarouselView({ config, isConfig }: { config: ICarouselConfig, isConfig:
       } catch (e) {}
 
       let sortedIds = recordIds.slice();
-      if (timeField) {
+      const useViewOrderFast = !!config.preferViewOrder && !!viewId;
+      if (timeField && !useViewOrderFast) {
         const pairs: { id: string, ts: number }[] = await Promise.all(sortedIds.map(async (rid) => {
           let ts = 0;
           try {
@@ -229,6 +232,11 @@ function CarouselView({ config, isConfig }: { config: ICarouselConfig, isConfig:
         }));
         pairs.sort((a, b) => (config.latestFirst ? b.ts - a.ts : a.ts - b.ts));
         sortedIds = pairs.map(p => p.id);
+      } else if (useViewOrderFast) {
+        sortedIds = recordIds.slice();
+        if (!config.latestFirst) {
+          sortedIds.reverse();
+        }
       }
       const takeIds = sortedIds.slice(0, Math.max(1, config.limit || 10));
 
@@ -380,7 +388,7 @@ function CarouselView({ config, isConfig }: { config: ICarouselConfig, isConfig:
   return (
     <div className='carousel-container'>
       <div className='carousel-slide' style={{ color }}>
-        {current.imageUrl ? <img className='carousel-image' src={current.imageUrl} decoding='async' loading='eager' /> : null}
+        {current.imageUrl ? <img className='carousel-image' src={current.imageUrl} decoding='async' loading='eager' fetchPriority='high' /> : null}
         {current.title ? <div className='carousel-title'>{current.title}</div> : null}
         {current.desc ? <div className='carousel-desc'>{current.desc}</div> : null}
       </div>
@@ -445,6 +453,9 @@ function ConfigPanel({ t, config, setConfig }: { t: any, config: ICarouselConfig
         </Item>
         <Item label={t('carousel.label.view')}>
           <Select value={config.viewId} optionList={views} onChange={(v) => setConfig({ ...config, viewId: v == null ? undefined : String(v) })} style={{ width: '100%' }} />
+        </Item>
+        <Item label={'遵循视图排序(更快)'}>
+          <Switch checked={!!config.preferViewOrder} onChange={(v) => setConfig({ ...config, preferViewOrder: !!v })} />
         </Item>
         <Item label={'时间字段'}>
           <Select value={config.timeFieldId} optionList={timeFieldOptions} onChange={(v) => setConfig({ ...config, timeFieldId: v == null ? undefined : String(v) })} style={{ width: '100%' }} />
