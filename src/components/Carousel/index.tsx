@@ -48,7 +48,6 @@ export default function Carousel(props: { bgColor: string }) {
   const [currentPageId, setCurrentPageId] = useState<string | undefined>(undefined);
 
   const isCreate = dashboard.state === DashboardState.Create;
-  const isDashboardConfig = (dashboard.state === DashboardState.Config) || isCreate || !appConfig.pages.length;
 
   const timer = useRef<any>();
   const updateConfig = (res: any) => {
@@ -102,6 +101,7 @@ export default function Carousel(props: { bgColor: string }) {
   useConfig(updateConfig);
 
   const currentPage = useMemo(() => appConfig.pages.find(p => p.id === currentPageId) || appConfig.pages[0], [appConfig, currentPageId]);
+  const showConfig = (dashboard.state === DashboardState.Config) || isCreate || !appConfig.pages.length || !(currentPage && currentPage.tableId);
 
   useEffect(() => {
     if (!appConfig.pages.length) {
@@ -125,7 +125,7 @@ export default function Carousel(props: { bgColor: string }) {
   }, [appConfig.pages.length]);
 
   return (
-    <main style={{ backgroundColor: props.bgColor }} className={classnames({ 'main-config': isDashboardConfig, 'main': true })}>
+    <main style={{ backgroundColor: props.bgColor }} className={classnames({ 'main-config': showConfig, 'main': true })}>
       <div className='content'>
         <CarouselView config={currentPage || {
           limit: 10,
@@ -135,9 +135,9 @@ export default function Carousel(props: { bgColor: string }) {
           showIndicators: true,
           latestFirst: true,
           preferViewOrder: true,
-        } as ICarouselConfig} isConfig={isDashboardConfig} />
+        } as ICarouselConfig} isConfig={showConfig} />
       </div>
-      {isDashboardConfig && (
+      {showConfig && (
         <div className='config-panel'>
           <PagesManagerPanel
             t={t}
