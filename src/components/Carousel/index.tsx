@@ -100,8 +100,8 @@ export default function Carousel(props: { bgColor: string }) {
 
   useConfig(updateConfig);
 
-  const currentPage = useMemo(() => appConfig.pages.find(p => p.id === currentPageId) || appConfig.pages[0], [appConfig, currentPageId]);
-  const showConfig = (dashboard.state === DashboardState.Config) || isCreate || !appConfig.pages.length || !(currentPage && currentPage.tableId);
+  const currentPage = useMemo(() => (appConfig.pages && appConfig.pages.find(p => p.id === currentPageId)) || (appConfig.pages && appConfig.pages[0]), [appConfig, currentPageId]);
+  const showConfig = (dashboard.state === DashboardState.Config) || isCreate || !(appConfig.pages && appConfig.pages.length) || !(currentPage && currentPage.tableId);
 
   useEffect(() => {
     if (!appConfig.pages || !appConfig.pages.length) {
