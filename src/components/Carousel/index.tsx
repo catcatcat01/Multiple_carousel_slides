@@ -101,6 +101,25 @@ export default function Carousel(props: { bgColor: string }) {
 
   const currentPage = useMemo(() => appConfig.pages.find(p => p.id === currentPageId) || appConfig.pages[0], [appConfig, currentPageId]);
 
+  useEffect(() => {
+    if (!appConfig.pages.length) {
+      const id = `page-${Date.now()}`;
+      const page: IPageConfig = {
+        id,
+        name: t('carousel.page') || '页面',
+        limit: 10,
+        intervalMs: 3000,
+        refreshMs: 8000,
+        color: 'var(--ccm-chart-N700)',
+        showIndicators: true,
+        latestFirst: true,
+        preferViewOrder: true,
+      } as IPageConfig;
+      setAppConfig({ pages: [page] });
+      setCurrentPageId(id);
+    }
+  }, [appConfig.pages.length]);
+
   return (
     <main style={{ backgroundColor: props.bgColor }} className={classnames({ 'main-config': isDashboardConfig, 'main': true })}>
       <div className='content'>
