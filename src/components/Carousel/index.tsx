@@ -48,7 +48,7 @@ export default function Carousel(props: { bgColor: string }) {
   const [currentPageId, setCurrentPageId] = useState<string | undefined>(undefined);
 
   const isCreate = dashboard.state === DashboardState.Create;
-  const isDashboardConfig = dashboard.state === DashboardState.Config || isCreate;
+  const isDashboardConfig = (dashboard.state === DashboardState.Config) || isCreate || !appConfig.pages.length;
 
   const timer = useRef<any>();
   const updateConfig = (res: any) => {
