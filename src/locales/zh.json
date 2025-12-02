@@ -23,4 +23,6 @@
   "carousel.label.refresh": "刷新间隔(毫秒)",
   "carousel.label.indicator": "显示指示器",
   "carousel.preview.empty": "请配置数据源"
+  ,
+  "carousel.page": "页面"
 }

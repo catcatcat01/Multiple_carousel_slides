@@ -22,5 +22,6 @@
   "carousel.label.interval": "Switch Interval (ms)",
   "carousel.label.refresh": "Refresh Interval (ms)",
   "carousel.label.indicator": "Show Indicators",
-  "carousel.preview.empty": "Please configure data source"
+  "carousel.preview.empty": "Please configure data source",
+  "carousel.page": "Page"
 }

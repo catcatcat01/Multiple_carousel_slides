@@ -22,5 +22,6 @@
   "carousel.label.interval": "切替間隔(ms)",
   "carousel.label.refresh": "更新間隔(ms)",
   "carousel.label.indicator": "インジケーターを表示",
-  "carousel.preview.empty": "データソースを設定してください"
+  "carousel.preview.empty": "データソースを設定してください",
+  "carousel.page": "ページ"
 }

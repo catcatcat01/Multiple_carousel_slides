@@ -225,7 +225,7 @@ function PagesManagerPanel({ t, appConfig, setAppConfig, currentPageId, setCurre
           </Item>
           <div style={{ display: 'flex', gap: 8 }}>
             <Button onClick={() => setCurrentPageId(p.id)}>{'进入页面'}</Button>
-            <Button theme='danger' onClick={() => removePage(p.id)}>{'删除页面'}</Button>
+            <Button type='danger' onClick={() => removePage(p.id)}>{'删除页面'}</Button>
           </div>
         </div>
       ))}
