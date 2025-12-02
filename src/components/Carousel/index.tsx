@@ -1,7 +1,7 @@
 import './style.scss';
 import React, { useMemo } from 'react';
 import { dashboard, bitable, DashboardState, FieldType, IAttachmentField, IFieldMeta, ITable } from "@lark-base-open/js-sdk";
-import { Button, Select, InputNumber, Switch } from '@douyinfe/semi-ui';
+import { Button, Select, InputNumber, Switch, Input } from '@douyinfe/semi-ui';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import classnames from 'classnames';
 import { useTranslation } from 'react-i18next';
@@ -26,6 +26,15 @@ interface ICarouselConfig {
   showIndicators: boolean;
 }
 
+interface IPageConfig extends ICarouselConfig {
+  id: string;
+  name: string;
+}
+
+interface IAppConfig {
+  pages: IPageConfig[];
+}
+
 interface ISlide {
   id: string;
   title: string;
@@ -35,18 +44,11 @@ interface ISlide {
 
 export default function Carousel(props: { bgColor: string }) {
   const { t } = useTranslation();
-  const [config, setConfig] = useState<ICarouselConfig>({
-    limit: 10,
-    intervalMs: 3000,
-    refreshMs: 8000,
-    color: 'var(--ccm-chart-N700)',
-    showIndicators: true,
-    latestFirst: true,
-    preferViewOrder: true,
-  });
+  const [appConfig, setAppConfig] = useState<IAppConfig>({ pages: [] });
+  const [currentPageId, setCurrentPageId] = useState<string | undefined>(undefined);
 
   const isCreate = dashboard.state === DashboardState.Create;
-  const isConfig = isCreate;
+  const isDashboardConfig = dashboard.state === DashboardState.Config || isCreate;
 
   const timer = useRef<any>();
   const updateConfig = (res: any) => {
@@ -56,15 +58,39 @@ export default function Carousel(props: { bgColor: string }) {
     const { customConfig } = res || {};
     if (customConfig) {
       const normalize = (v?: string) => (v === 'undefined' || v === 'null' || v === '' ? undefined : v);
-      const cfg = customConfig as ICarouselConfig;
-      setConfig({
-        ...cfg,
-        tableId: normalize(cfg.tableId),
-        viewId: normalize(cfg.viewId),
-        titleFieldId: normalize(cfg.titleFieldId),
-        descFieldId: normalize(cfg.descFieldId),
-        imageFieldId: normalize(cfg.imageFieldId),
-      });
+      const toPage = (raw: any, idx: number): IPageConfig => {
+        const base: ICarouselConfig = {
+          limit: raw?.limit ?? 10,
+          intervalMs: raw?.intervalMs ?? 3000,
+          refreshMs: raw?.refreshMs ?? 8000,
+          color: raw?.color ?? 'var(--ccm-chart-N700)',
+          showIndicators: raw?.showIndicators ?? true,
+          latestFirst: raw?.latestFirst ?? true,
+          preferViewOrder: raw?.preferViewOrder ?? true,
+          tableId: normalize(raw?.tableId),
+          viewId: normalize(raw?.viewId),
+          titleFieldId: normalize(raw?.titleFieldId),
+          descFieldId: normalize(raw?.descFieldId),
+          imageFieldId: normalize(raw?.imageFieldId),
+          timeFieldId: normalize(raw?.timeFieldId),
+        } as ICarouselConfig;
+        return {
+          id: String(raw?.id || `page-${idx + 1}`),
+          name: String(raw?.name || t('carousel.page') || `页面${idx + 1}`),
+          ...base,
+        } as IPageConfig;
+      };
+
+      let pages: IPageConfig[] = [];
+      if (Array.isArray(customConfig?.pages)) {
+        pages = (customConfig.pages as any[]).map((p, i) => toPage(p, i));
+      } else {
+        pages = [toPage(customConfig, 0)];
+      }
+      setAppConfig({ pages });
+      if (!currentPageId && pages.length) {
+        setCurrentPageId(pages[0].id);
+      }
       timer.current = setTimeout(() => {
         dashboard.setRendered();
       }, 3000);
@@ -73,13 +99,141 @@ export default function Carousel(props: { bgColor: string }) {
 
   useConfig(updateConfig);
 
+  const currentPage = useMemo(() => appConfig.pages.find(p => p.id === currentPageId) || appConfig.pages[0], [appConfig, currentPageId]);
+
   return (
-    <main style={{ backgroundColor: props.bgColor }} className={classnames({ 'main-config': isConfig, 'main': true })}>
+    <main style={{ backgroundColor: props.bgColor }} className={classnames({ 'main-config': isDashboardConfig, 'main': true })}>
       <div className='content'>
-        <CarouselView config={config} isConfig={isConfig} />
+        <CarouselView config={currentPage || {
+          limit: 10,
+          intervalMs: 3000,
+          refreshMs: 8000,
+          color: 'var(--ccm-chart-N700)',
+          showIndicators: true,
+          latestFirst: true,
+          preferViewOrder: true,
+        } as ICarouselConfig} isConfig={isDashboardConfig} />
       </div>
-      {isConfig && <ConfigPanel t={t} config={config} setConfig={setConfig} />}
+      {isDashboardConfig && (
+        <div className='config-panel'>
+          <PagesManagerPanel
+            t={t}
+            appConfig={appConfig}
+            setAppConfig={setAppConfig}
+            currentPageId={currentPageId}
+            setCurrentPageId={setCurrentPageId}
+          />
+          {currentPage ? (
+            <ConfigPanel
+              t={t}
+              config={currentPage}
+              setConfig={(updater) => {
+                setAppConfig(prev => {
+                  const pages = prev.pages.map(p => {
+                    if (p.id !== currentPage.id) return p;
+                    const next = typeof updater === 'function' ? (updater as any)(p) : updater;
+                    return { ...p, ...next } as IPageConfig;
+                  });
+                  return { pages };
+                });
+              }}
+              onSave={(cfg) => {
+                setAppConfig(prev => {
+                  const pages = prev.pages.map(p => (p.id === currentPage!.id ? { ...p, ...cfg } : p));
+                  dashboard.saveConfig({ customConfig: { pages }, dataConditions: [] } as any);
+                  return { pages };
+                });
+              }}
+            />
+          ) : null}
+        </div>
+      )}
     </main>
+  );
+}
+
+function PagesManagerPanel({ t, appConfig, setAppConfig, currentPageId, setCurrentPageId }: {
+  t: any,
+  appConfig: IAppConfig,
+  setAppConfig: React.Dispatch<React.SetStateAction<IAppConfig>>,
+  currentPageId?: string,
+  setCurrentPageId: (id?: string) => void,
+}) {
+  const pages = appConfig.pages;
+
+  const addPage = () => {
+    const id = `page-${Date.now()}`;
+    const page: IPageConfig = {
+      id,
+      name: t('carousel.page') || '新页面',
+      limit: 10,
+      intervalMs: 3000,
+      refreshMs: 8000,
+      color: 'var(--ccm-chart-N700)',
+      showIndicators: true,
+      latestFirst: true,
+      preferViewOrder: true,
+    } as IPageConfig;
+    const next = { pages: [...pages, page] };
+    setAppConfig(next);
+    dashboard.saveConfig({ customConfig: next, dataConditions: [] } as any);
+    setCurrentPageId(id);
+  };
+
+  const updatePage = (id: string, patch: Partial<IPageConfig>) => {
+    setAppConfig(prev => {
+      const nextPages = prev.pages.map(p => (p.id === id ? { ...p, ...patch } : p));
+      return { pages: nextPages };
+    });
+  };
+
+  const removePage = (id: string) => {
+    setAppConfig(prev => {
+      const nextPages = prev.pages.filter(p => p.id !== id);
+      const next = { pages: nextPages };
+      dashboard.saveConfig({ customConfig: next, dataConditions: [] } as any);
+      if (currentPageId === id) {
+        setCurrentPageId(nextPages.length ? nextPages[0].id : undefined);
+      }
+      return next;
+    });
+  };
+
+  const saveAll = () => {
+    dashboard.saveConfig({ customConfig: appConfig, dataConditions: [] } as any);
+  };
+
+  return (
+    <div className='form'>
+      <div className='label'>页面管理</div>
+      {pages.map(p => (
+        <div key={p.id} className='form-item'>
+          <Item label={'页面名称'}>
+            <Input value={p.name} onChange={(v) => updatePage(p.id, { name: String(v) })} />
+          </Item>
+          <Item label={'滚动速度(ms)'}>
+            <InputNumber value={p.intervalMs} min={500} max={60000} step={500} onChange={(v) => updatePage(p.id, { intervalMs: Number(v) || 3000 })} />
+          </Item>
+          <Item label={'展示条数'}>
+            <InputNumber value={p.limit} min={1} max={50} onChange={(v) => updatePage(p.id, { limit: Number(v) || 10 })} />
+          </Item>
+          <Item label={'显示指示点'}>
+            <Switch checked={!!p.showIndicators} onChange={(v) => updatePage(p.id, { showIndicators: !!v })} />
+          </Item>
+          <Item label={t('label.color')}>
+            <ColorPicker value={p.color} onChange={(v) => updatePage(p.id, { color: v })} />
+          </Item>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <Button onClick={() => setCurrentPageId(p.id)}>{'进入页面'}</Button>
+            <Button theme='danger' onClick={() => removePage(p.id)}>{'删除页面'}</Button>
+          </div>
+        </div>
+      ))}
+      <div style={{ display: 'flex', gap: 8 }}>
+        <Button theme='solid' onClick={addPage}>{'新增页面'}</Button>
+        <Button onClick={saveAll}>{'保存'}</Button>
+      </div>
+    </div>
   );
 }
 
@@ -477,7 +631,7 @@ function CarouselView({ config, isConfig }: { config: ICarouselConfig, isConfig:
   );
 }
 
-function ConfigPanel({ t, config, setConfig }: { t: any, config: ICarouselConfig, setConfig: React.Dispatch<React.SetStateAction<ICarouselConfig>> }) {
+function ConfigPanel({ t, config, setConfig, onSave }: { t: any, config: ICarouselConfig, setConfig: React.Dispatch<React.SetStateAction<ICarouselConfig>>, onSave: (cfg: ICarouselConfig) => void }) {
   const [tables, setTables] = useState<{ label: string, value: string }[]>([]);
   const [views, setViews] = useState<{ label: string, value: string }[]>([]);
   const [fields, setFields] = useState<IFieldMeta[]>([]);
@@ -513,14 +667,11 @@ function ConfigPanel({ t, config, setConfig }: { t: any, config: ICarouselConfig
   const timeFieldOptions = useMemo(() => fields.map(f => ({ label: f.name, value: f.id })), [fields]);
 
   const onSaveConfig = () => {
-    dashboard.saveConfig({
-      customConfig: config,
-      dataConditions: [],
-    } as any);
+    onSave(config);
   };
 
   return (
-    <div className='config-panel'>
+    <div className='form'>
       <div className='form'>
         <Item label={t('carousel.label.table')}>
           <Select value={config.tableId} optionList={tables} onChange={(v) => setConfig({ ...config, tableId: v == null ? undefined : String(v) })} style={{ width: '100%' }} />
