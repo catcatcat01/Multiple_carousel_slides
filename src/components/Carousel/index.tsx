@@ -57,13 +57,15 @@ export default function Carousel(props: { bgColor: string }) {
     }
     const { customConfig } = res || {};
     if (customConfig) {
+      const themeMode = (document.body.getAttribute('theme-mode') || '').toLowerCase();
+      const defaultColor = themeMode === 'dark' ? 'var(--ccm-chart-W500)' : 'var(--ccm-chart-N700)';
       const normalize = (v?: string) => (v === 'undefined' || v === 'null' || v === '' ? undefined : v);
       const toPage = (raw: any, idx: number): IPageConfig => {
         const base: ICarouselConfig = {
           limit: raw?.limit ?? 10,
           intervalMs: raw?.intervalMs ?? 3000,
           refreshMs: raw?.refreshMs ?? 8000,
-          color: raw?.color ?? 'var(--ccm-chart-N700)',
+          color: raw?.color ?? defaultColor,
           showIndicators: raw?.showIndicators ?? true,
           latestFirst: raw?.latestFirst ?? true,
           preferViewOrder: raw?.preferViewOrder ?? true,
@@ -103,6 +105,8 @@ export default function Carousel(props: { bgColor: string }) {
 
   useEffect(() => {
     if (!appConfig.pages.length) {
+      const themeMode = (document.body.getAttribute('theme-mode') || '').toLowerCase();
+      const defaultColor = themeMode === 'dark' ? 'var(--ccm-chart-W500)' : 'var(--ccm-chart-N700)';
       const id = `page-${Date.now()}`;
       const page: IPageConfig = {
         id,
@@ -110,7 +114,7 @@ export default function Carousel(props: { bgColor: string }) {
         limit: 10,
         intervalMs: 3000,
         refreshMs: 8000,
-        color: 'var(--ccm-chart-N700)',
+        color: defaultColor,
         showIndicators: true,
         latestFirst: true,
         preferViewOrder: true,
@@ -127,7 +131,7 @@ export default function Carousel(props: { bgColor: string }) {
           limit: 10,
           intervalMs: 3000,
           refreshMs: 8000,
-          color: 'var(--ccm-chart-N700)',
+          color: (document.body.getAttribute('theme-mode') || '').toLowerCase() === 'dark' ? 'var(--ccm-chart-W500)' : 'var(--ccm-chart-N700)',
           showIndicators: true,
           latestFirst: true,
           preferViewOrder: true,
