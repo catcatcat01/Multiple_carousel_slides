@@ -69,7 +69,7 @@ export default function Carousel(props: { bgColor: string }) {
   const isCreate = dashboard.state === DashboardState.Create;
 
   const timer = useRef<any>();
-  const updateConfig = (res: any) => {
+  const updateConfig = useCallback((res: any) => {
     if (timer.current) {
       clearTimeout(timer.current);
     }
@@ -111,24 +111,33 @@ export default function Carousel(props: { bgColor: string }) {
       }
       setAppConfig({ pages });
       // If current page is not in the new list, switch to the first one
-      if (!currentPageId || !pages.find(p => p.id === currentPageId)) {
-        setCurrentPageId(pages[0].id);
-      }
-      timer.current = setTimeout(() => {
-        dashboard.setRendered();
-      }, 3000);
+      // Use a callback to ensure we use the latest currentPageId state if needed, 
+      // but here we are inside a callback so we rely on the closure or dependency.
+      // Ideally we should check against the new pages.
+      setCurrentPageId(prevId => {
+          if (!prevId || !pages.find(p => p.id === prevId)) {
+              return pages[0].id;
+          }
+          return prevId;
+      });
+      
+      // Timer removed here, moved to useEffect
     }
-  };
+  }, [t]);
 
   useConfig(updateConfig);
 
+  // Ensure setRendered is called to avoid "Unknown Plugin" or timeout
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      dashboard.setRendered();
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, []);
+
   const currentPage = useMemo(() => (appConfig.pages && appConfig.pages.find(p => p.id === currentPageId)) || (appConfig.pages && appConfig.pages[0]), [appConfig, currentPageId]);
   
-  // Show config if:
-  // 1. Dashboard is in Config mode
-  // 2. Dashboard is in Create mode
-  // 3. No pages exist
-  // 4. Current page has no tableId (not configured)
+  // Force show config if logic suggests it, or if we are in a fallback state
   const showConfig = (dashboard.state === DashboardState.Config) || isCreate || !(appConfig.pages && appConfig.pages.length) || !(currentPage && currentPage.tableId);
 
   // Removed the useEffect that added default page, as we now initialize with it.

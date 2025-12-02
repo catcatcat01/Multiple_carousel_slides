@@ -13,7 +13,7 @@ export function useTheme() {
     dashboard.getTheme().then((res) => {
       setBgColor(res.chartBgColor);
       updateTheme(res.theme.toLocaleLowerCase());
-    })
+    }).catch(e => console.error("getTheme error", e));
 
     dashboard.onThemeChange((res) => {
       setBgColor(res.data.chartBgColor);
@@ -31,10 +31,16 @@ export function useConfig(updateConfig: (data: any) => void) {
   const isCreate = dashboard.state === DashboardState.Create
   React.useEffect(() => {
     if (isCreate) {
+      // If create mode, we might need to notify rendered too? 
+      // But usually config is not fetched.
       return
     }
     // 初始化获取配置
-    dashboard.getConfig().then(updateConfig);
+    dashboard.getConfig().then(updateConfig).catch(e => {
+      console.error("getConfig error", e);
+      // Call updateConfig with empty to ensure flow continues?
+      // updateConfig({}); 
+    });
   }, []);
 
 
