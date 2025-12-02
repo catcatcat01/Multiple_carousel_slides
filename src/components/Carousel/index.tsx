@@ -104,7 +104,7 @@ export default function Carousel(props: { bgColor: string }) {
   const showConfig = (dashboard.state === DashboardState.Config) || isCreate || !appConfig.pages.length || !(currentPage && currentPage.tableId);
 
   useEffect(() => {
-    if (!appConfig.pages.length) {
+    if (!appConfig.pages || !appConfig.pages.length) {
       const themeMode = (document.body.getAttribute('theme-mode') || '').toLowerCase();
       const defaultColor = themeMode === 'dark' ? 'var(--ccm-chart-W500)' : 'var(--ccm-chart-N700)';
       const id = `page-${Date.now()}`;
@@ -122,7 +122,7 @@ export default function Carousel(props: { bgColor: string }) {
       setAppConfig({ pages: [page] });
       setCurrentPageId(id);
     }
-  }, [appConfig.pages.length]);
+  }, [appConfig.pages?.length]);
 
   return (
     <main style={{ backgroundColor: props.bgColor }} className={classnames({ 'main-config': showConfig, 'main': true })}>
@@ -182,7 +182,7 @@ function PagesManagerPanel({ t, appConfig, setAppConfig, currentPageId, setCurre
   currentPageId?: string,
   setCurrentPageId: (id?: string) => void,
 }) {
-  const pages = appConfig.pages;
+  const pages = appConfig.pages || [];
 
   const addPage = () => {
     const id = `page-${Date.now()}`;
@@ -205,14 +205,16 @@ function PagesManagerPanel({ t, appConfig, setAppConfig, currentPageId, setCurre
 
   const updatePage = (id: string, patch: Partial<IPageConfig>) => {
     setAppConfig(prev => {
-      const nextPages = prev.pages.map(p => (p.id === id ? { ...p, ...patch } : p));
+      const prevPages = prev.pages || [];
+      const nextPages = prevPages.map(p => (p.id === id ? { ...p, ...patch } : p));
       return { pages: nextPages };
     });
   };
 
   const removePage = (id: string) => {
     setAppConfig(prev => {
-      const nextPages = prev.pages.filter(p => p.id !== id);
+      const prevPages = prev.pages || [];
+      const nextPages = prevPages.filter(p => p.id !== id);
       const next = { pages: nextPages };
       dashboard.saveConfig({ customConfig: next, dataConditions: [] } as any);
       if (currentPageId === id) {
@@ -229,6 +231,11 @@ function PagesManagerPanel({ t, appConfig, setAppConfig, currentPageId, setCurre
   return (
     <div className='form'>
       <div className='label'>页面管理</div>
+      {(!pages || pages.length === 0) ? (
+        <div style={{ padding: '12px 0', color: 'var(--semi-color-text-2)' }}>
+          {t('carousel.no_pages') || '暂无页面，请添加'}
+        </div>
+      ) : null}
       {pages.map(p => (
         <div key={p.id} className='form-item'>
           <Item label={'页面名称'}>
