@@ -269,24 +269,12 @@ function PagesManagerPanel({ t, appConfig, setAppConfig, currentPageId, setCurre
       ) : null}
       {pages.map(p => (
         <div key={p.id} className='form-item'>
-          <Item label={'页面名称'}>
-            <Input value={p.name} onChange={(v) => updatePage(p.id, { name: String(v) })} />
-          </Item>
-          <Item label={'滚动速度(ms)'}>
-            <InputNumber value={p.intervalMs} min={500} max={60000} step={500} onChange={(v) => updatePage(p.id, { intervalMs: Number(v) || 3000 })} />
-          </Item>
-          <Item label={'展示条数'}>
-            <InputNumber value={p.limit} min={1} max={50} onChange={(v) => updatePage(p.id, { limit: Number(v) || 10 })} />
-          </Item>
-          <Item label={'显示指示点'}>
-            <Switch checked={!!p.showIndicators} onChange={(v) => updatePage(p.id, { showIndicators: !!v })} />
-          </Item>
-          <Item label={t('label.color')}>
-            <ColorPicker value={p.color} onChange={(v) => updatePage(p.id, { color: v })} />
-          </Item>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <Button onClick={() => setCurrentPageId(p.id)}>{'进入页面'}</Button>
-            <Button type='danger' onClick={() => removePage(p.id)}>{'删除页面'}</Button>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ fontWeight: 600 }}>{p.name}</div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <Button onClick={() => setCurrentPageId(p.id)}>{'进入页面'}</Button>
+              <Button type='danger' onClick={() => removePage(p.id)}>{'删除页面'}</Button>
+            </div>
           </div>
         </div>
       ))}
@@ -300,7 +288,7 @@ function PagesManagerPanel({ t, appConfig, setAppConfig, currentPageId, setCurre
 
 function GridView({ pages, intervalMs }: { pages: IPageConfig[], intervalMs: number }) {
   const [start, setStart] = useState(0);
-  const n = Math.min(4, pages.length || 0);
+  const n = (pages.length || 0) <= 4 ? (pages.length || 0) : 1;
   useEffect(() => {
     setStart(0);
   }, [pages.length]);
@@ -308,7 +296,7 @@ function GridView({ pages, intervalMs }: { pages: IPageConfig[], intervalMs: num
     let timer: any;
     if (pages.length > 4) {
       timer = setInterval(() => {
-        setStart(s => (s + 4) % pages.length);
+        setStart(s => (s + 1) % pages.length);
       }, Math.max(1000, intervalMs || 5000));
     }
     return () => {
@@ -318,11 +306,7 @@ function GridView({ pages, intervalMs }: { pages: IPageConfig[], intervalMs: num
   const visible = useMemo(() => {
     if (!pages.length) return [] as IPageConfig[];
     if (pages.length <= 4) return pages;
-    const list: IPageConfig[] = [];
-    for (let i = 0; i < 4; i++) {
-      list.push(pages[(start + i) % pages.length]);
-    }
-    return list;
+    return [pages[start]];
   }, [pages, start]);
   const cls = useMemo(() => {
     if (n === 1) return 'grid-root grid-n-1';
@@ -735,7 +719,7 @@ function CarouselView({ config, isConfig }: { config: ICarouselConfig, isConfig:
   );
 }
 
-function ConfigPanel({ t, config, setConfig, onSave }: { t: any, config: ICarouselConfig, setConfig: React.Dispatch<React.SetStateAction<ICarouselConfig>>, onSave: (cfg: ICarouselConfig) => void }) {
+function ConfigPanel({ t, config, setConfig, onSave }: { t: any, config: IPageConfig, setConfig: React.Dispatch<React.SetStateAction<IPageConfig>>, onSave: (cfg: IPageConfig) => void }) {
   const [tables, setTables] = useState<{ label: string, value: string }[]>([]);
   const [views, setViews] = useState<{ label: string, value: string }[]>([]);
   const [fields, setFields] = useState<IFieldMeta[]>([]);
@@ -777,6 +761,9 @@ function ConfigPanel({ t, config, setConfig, onSave }: { t: any, config: ICarous
   return (
     <div className='form'>
       <div className='form'>
+        <Item label={'页面名称'}>
+          <Input value={(config as any).name} onChange={(v) => setConfig({ ...config, name: String(v) } as any)} />
+        </Item>
         <Item label={t('carousel.label.table')}>
           <Select value={config.tableId} optionList={tables} onChange={(v) => setConfig({ ...config, tableId: v == null ? undefined : String(v) })} style={{ width: '100%' }} />
         </Item>
