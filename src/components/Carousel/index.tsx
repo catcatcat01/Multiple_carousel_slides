@@ -453,14 +453,14 @@ function CarouselView({ config, isConfig, active = true }: { config: ICarouselCo
     const arr = Array.isArray(val) ? val : [val];
     for (const item of arr) {
       if (!item || typeof item !== 'object') continue;
-      const cand = (item as any).thumbnailUrl
-        || (item as any).thumbnail_url
+      const cand = (item as any).url
+        || (item as any).fsUrl
+        || (item as any).fs_url
         || (item as any).previewUrl
         || (item as any).preview_url
-        || (item as any).picUrl
-        || (item as any).url
-        || (item as any).fsUrl
-        || (item as any).fs_url;
+        || (item as any).thumbnailUrl
+        || (item as any).thumbnail_url
+        || (item as any).picUrl;
       if (typeof cand === 'string' && cand) return cand;
     }
     return undefined;
@@ -495,13 +495,13 @@ function CarouselView({ config, isConfig, active = true }: { config: ICarouselCo
       if (!field) return undefined;
       let imageUrl: string | undefined = undefined;
       try {
-        const raw = await (field as any).getValue(rid);
-        imageUrl = pickAttachmentUrl(raw);
+        const urls: string[] = await (field as any).getAttachmentUrls(rid);
+        imageUrl = urls && urls.length ? urls[0] : undefined;
       } catch (_) {}
       if (!imageUrl) {
         try {
-          const urls: string[] = await (field as any).getAttachmentUrls(rid);
-          imageUrl = urls && urls.length ? urls[0] : undefined;
+          const raw = await (field as any).getValue(rid);
+          imageUrl = pickAttachmentUrl(raw);
         } catch (_) {}
       }
       if (imageUrl) {
@@ -649,15 +649,15 @@ function CarouselView({ config, isConfig, active = true }: { config: ICarouselCo
             tasks.push((async () => {
               if (imageFieldRef.current) {
                 try {
-                  const raw = await (imageFieldRef.current as any).getValue(rid);
-                  imageUrl = pickAttachmentUrl(raw);
-                  if (!imageUrl) {
-                    try {
-                      const urls: string[] = await (imageFieldRef.current as any).getAttachmentUrls(rid);
-                      imageUrl = urls && urls.length ? urls[0] : undefined;
-                    } catch (_) {}
-                  }
+                  const urls: string[] = await (imageFieldRef.current as any).getAttachmentUrls(rid);
+                  imageUrl = urls && urls.length ? urls[0] : undefined;
                 } catch (_) {}
+                if (!imageUrl) {
+                  try {
+                    const raw = await (imageFieldRef.current as any).getValue(rid);
+                    imageUrl = pickAttachmentUrl(raw);
+                  } catch (_) {}
+                }
               }
             })());
             await Promise.all(tasks);
@@ -713,15 +713,15 @@ function CarouselView({ config, isConfig, active = true }: { config: ICarouselCo
             (async () => {
               if (imageFieldRef.current) {
                 try {
-                  const raw = await (imageFieldRef.current as any).getValue(rid);
-                  imageUrl = pickAttachmentUrl(raw);
-                  if (!imageUrl) {
-                    try {
-                      const urls: string[] = await (imageFieldRef.current as any).getAttachmentUrls(rid);
-                      imageUrl = urls && urls.length ? urls[0] : undefined;
-                    } catch (_) {}
-                  }
+                  const urls: string[] = await (imageFieldRef.current as any).getAttachmentUrls(rid);
+                  imageUrl = urls && urls.length ? urls[0] : undefined;
                 } catch (_) {}
+                if (!imageUrl) {
+                  try {
+                    const raw = await (imageFieldRef.current as any).getValue(rid);
+                    imageUrl = pickAttachmentUrl(raw);
+                  } catch (_) {}
+                }
               }
             })(),
           ]);
@@ -856,9 +856,11 @@ function CarouselView({ config, isConfig, active = true }: { config: ICarouselCo
   }
 
   const current = slides[index];
-  const showImage = current?.imageUrl ? preloadedRef.current[current.imageUrl] !== false : false;
+  const preloadStatus = current?.imageUrl ? preloadedRef.current[current.imageUrl] : undefined;
+  const showImage = preloadStatus === true;
   const hasText = !!(current?.title) || !!(current?.desc);
-  const waitingContent = !showImage && !hasText;
+  const isImageError = preloadStatus === false;
+  const waitingContent = preloadStatus === undefined && !hasText;
 
   return (
     <div className='carousel-container'>
@@ -870,7 +872,7 @@ function CarouselView({ config, isConfig, active = true }: { config: ICarouselCo
             {current.desc ? <div className='carousel-desc' style={{ fontSize: config.descFontSize ? `${config.descFontSize}px` : undefined }}>{current.desc}</div> : null}
           </>
         ) : (
-          isConfig && !showImage ? <div className='carousel-title' style={{ color }}>暂无数据或字段未配置</div> : (waitingContent ? <div className='carousel-title' style={{ color }}>加载中...</div> : null)
+          isConfig && !showImage ? <div className='carousel-title' style={{ color }}>暂无数据或字段未配置</div> : (waitingContent ? <div className='carousel-title' style={{ color }}>加载中...</div> : (isImageError ? <div className='carousel-title' style={{ color }}>图片加载失败</div> : null))
         )}
       </div>
       {config.showIndicators ? (
