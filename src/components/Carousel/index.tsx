@@ -753,13 +753,18 @@ function CarouselView({ config, isConfig, active = true }: { config: ICarouselCo
 
   const current = slides[index];
   const showImage = current?.imageUrl ? preloadedRef.current[current.imageUrl] !== false : false;
+  const hasText = !!(current?.title) || !!(current?.desc);
 
   return (
     <div className='carousel-container'>
       <div className='carousel-slide' style={{ color }}>
         {showImage ? <img className='carousel-image' src={current.imageUrl as string} decoding='async' loading='eager' {...({ fetchpriority: 'high' } as any)} onLoad={() => { if (current.imageUrl) preloadedRef.current[current.imageUrl] = true; }} onError={async () => { if (current.imageUrl) preloadedRef.current[current.imageUrl] = false; await refreshImageUrlFor(current.id); }} /> : null}
-        {current.title ? <div className='carousel-title'>{current.title}</div> : null}
-        {current.desc ? <div className='carousel-desc'>{current.desc}</div> : null}
+        {hasText ? (
+          <>
+            {current.title ? <div className='carousel-title'>{current.title}</div> : null}
+            {current.desc ? <div className='carousel-desc'>{current.desc}</div> : null}
+          </>
+        ) : (!showImage ? <div className='carousel-title' style={{ color }}>暂无数据或字段未配置</div> : null)}
       </div>
       {config.showIndicators ? (
         <div className='carousel-indicators'>
