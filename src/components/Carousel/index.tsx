@@ -143,8 +143,7 @@ export default function Carousel(props: { bgColor: string }) {
   
   // Config mode indicator and grid display decision
   const inConfigMode = (dashboard && (dashboard.state === DashboardState.Config || dashboard.state === DashboardState.Create)) || isCreate;
-  const hasAnyConfiguredPage = useMemo(() => (appConfig.pages && appConfig.pages.some(p => !!p.tableId)) || false, [appConfig.pages]);
-  const shouldShowGrid = !!(appConfig.pages && appConfig.pages.length) && hasAnyConfiguredPage;
+  const shouldShowGrid = !!(appConfig.pages && appConfig.pages.length);
 
   // Removed the useEffect that added default page, as we now initialize with it.
 
