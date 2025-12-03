@@ -33,6 +33,7 @@ interface IPageConfig extends ICarouselConfig {
 
 interface IAppConfig {
   pages: IPageConfig[];
+  groupIntervalMs?: number;
 }
 
 interface ISlide {
@@ -61,6 +62,8 @@ export default function Carousel(props: { bgColor: string }) {
         latestFirst: true,
         preferViewOrder: true,
       }]
+      ,
+      groupIntervalMs: 5000
     };
   });
   
@@ -109,7 +112,8 @@ export default function Carousel(props: { bgColor: string }) {
       } else {
         pages = [toPage(customConfig, 0)];
       }
-      setAppConfig({ pages });
+      const groupIntervalMs = Number((customConfig as any).groupIntervalMs) || 5000;
+      setAppConfig({ pages, groupIntervalMs });
       // If current page is not in the new list, switch to the first one
       // Use a callback to ensure we use the latest currentPageId state if needed, 
       // but here we are inside a callback so we rely on the closure or dependency.
@@ -145,15 +149,19 @@ export default function Carousel(props: { bgColor: string }) {
   return (
     <main style={{ backgroundColor: props.bgColor }} className={classnames({ 'main-config': showConfig, 'main': true })}>
       <div className='content'>
-        <CarouselView config={currentPage || {
-          limit: 10,
-          intervalMs: 3000,
-          refreshMs: 8000,
-          color: (document.body.getAttribute('theme-mode') || '').toLowerCase() === 'dark' ? 'var(--ccm-chart-W500)' : 'var(--ccm-chart-N700)',
-          showIndicators: true,
-          latestFirst: true,
-          preferViewOrder: true,
-        } as ICarouselConfig} isConfig={showConfig} />
+        {showConfig ? (
+          <CarouselView config={currentPage || {
+            limit: 10,
+            intervalMs: 3000,
+            refreshMs: 8000,
+            color: (document.body.getAttribute('theme-mode') || '').toLowerCase() === 'dark' ? 'var(--ccm-chart-W500)' : 'var(--ccm-chart-N700)',
+            showIndicators: true,
+            latestFirst: true,
+            preferViewOrder: true,
+          } as ICarouselConfig} isConfig={showConfig} />
+        ) : (
+          <GridView pages={appConfig.pages || []} intervalMs={appConfig.groupIntervalMs || 5000} />
+        )}
       </div>
       {showConfig && (
         <div className='config-panel'>
@@ -175,14 +183,14 @@ export default function Carousel(props: { bgColor: string }) {
                     const next = typeof updater === 'function' ? (updater as any)(p) : updater;
                     return { ...p, ...next } as IPageConfig;
                   });
-                  return { pages };
+                  return { pages, groupIntervalMs: prev.groupIntervalMs };
                 });
               }}
               onSave={(cfg) => {
                 setAppConfig(prev => {
                   const pages = prev.pages.map(p => (p.id === currentPage!.id ? { ...p, ...cfg } : p));
-                  dashboard.saveConfig({ customConfig: { pages }, dataConditions: [] } as any);
-                  return { pages };
+                  dashboard.saveConfig({ customConfig: { pages, groupIntervalMs: prev.groupIntervalMs }, dataConditions: [] } as any);
+                  return { pages, groupIntervalMs: prev.groupIntervalMs };
                 });
               }}
             />
@@ -215,7 +223,7 @@ function PagesManagerPanel({ t, appConfig, setAppConfig, currentPageId, setCurre
       latestFirst: true,
       preferViewOrder: true,
     } as IPageConfig;
-    const next = { pages: [...pages, page] };
+    const next = { pages: [...pages, page], groupIntervalMs: appConfig.groupIntervalMs };
     setAppConfig(next);
     dashboard.saveConfig({ customConfig: next, dataConditions: [] } as any);
     setCurrentPageId(id);
@@ -225,7 +233,7 @@ function PagesManagerPanel({ t, appConfig, setAppConfig, currentPageId, setCurre
     setAppConfig(prev => {
       const prevPages = prev.pages || [];
       const nextPages = prevPages.map(p => (p.id === id ? { ...p, ...patch } : p));
-      return { pages: nextPages };
+      return { pages: nextPages, groupIntervalMs: prev.groupIntervalMs };
     });
   };
 
@@ -233,7 +241,7 @@ function PagesManagerPanel({ t, appConfig, setAppConfig, currentPageId, setCurre
     setAppConfig(prev => {
       const prevPages = prev.pages || [];
       const nextPages = prevPages.filter(p => p.id !== id);
-      const next = { pages: nextPages };
+      const next = { pages: nextPages, groupIntervalMs: prev.groupIntervalMs };
       dashboard.saveConfig({ customConfig: next, dataConditions: [] } as any);
       if (currentPageId === id) {
         setCurrentPageId(nextPages.length ? nextPages[0].id : undefined);
@@ -249,6 +257,11 @@ function PagesManagerPanel({ t, appConfig, setAppConfig, currentPageId, setCurre
   return (
     <div className='form'>
       <div className='label'>页面管理</div>
+      <div className='form-item'>
+        <Item label={'轮播时间(ms)'}>
+          <InputNumber value={appConfig.groupIntervalMs || 5000} min={1000} max={60000} step={500} onChange={(v) => setAppConfig(prev => ({ pages: prev.pages || [], groupIntervalMs: Number(v) || 5000 }))} />
+        </Item>
+      </div>
       {(!pages || pages.length === 0) ? (
         <div style={{ padding: '12px 0', color: 'var(--semi-color-text-2)' }}>
           {t('carousel.no_pages') || '暂无页面，请添加'}
@@ -281,6 +294,49 @@ function PagesManagerPanel({ t, appConfig, setAppConfig, currentPageId, setCurre
         <Button theme='solid' onClick={addPage}>{'新增页面'}</Button>
         <Button onClick={saveAll}>{'保存'}</Button>
       </div>
+    </div>
+  );
+}
+
+function GridView({ pages, intervalMs }: { pages: IPageConfig[], intervalMs: number }) {
+  const [start, setStart] = useState(0);
+  const n = Math.min(4, pages.length || 0);
+  useEffect(() => {
+    setStart(0);
+  }, [pages.length]);
+  useEffect(() => {
+    let timer: any;
+    if (pages.length > 4) {
+      timer = setInterval(() => {
+        setStart(s => (s + 4) % pages.length);
+      }, Math.max(1000, intervalMs || 5000));
+    }
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [pages.length, intervalMs]);
+  const visible = useMemo(() => {
+    if (!pages.length) return [] as IPageConfig[];
+    if (pages.length <= 4) return pages;
+    const list: IPageConfig[] = [];
+    for (let i = 0; i < 4; i++) {
+      list.push(pages[(start + i) % pages.length]);
+    }
+    return list;
+  }, [pages, start]);
+  const cls = useMemo(() => {
+    if (n === 1) return 'grid-root grid-n-1';
+    if (n === 2) return 'grid-root grid-n-2';
+    if (n === 3) return 'grid-root grid-n-3';
+    return 'grid-root grid-n-4';
+  }, [n]);
+  return (
+    <div className={cls}>
+      {visible.map((p) => (
+        <div key={p.id} className='grid-item'>
+          <CarouselView config={p} isConfig={false} />
+        </div>
+      ))}
     </div>
   );
 }

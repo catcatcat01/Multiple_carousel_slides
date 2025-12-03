@@ -93,3 +93,44 @@
 .indicator-dot-active {
     background: var(--ccm-chart-B500);
 }
+
+.grid-root {
+    display: grid;
+    width: 100%;
+    height: 100vh;
+    gap: 12px;
+    padding: 12px;
+    box-sizing: border-box;
+}
+
+.grid-n-1 {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr;
+}
+
+.grid-n-2 {
+    grid-template-columns: repeat(2, 1fr);
+    grid-template-rows: 1fr;
+}
+
+.grid-n-3 {
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: 1fr;
+}
+
+.grid-n-4 {
+    grid-template-columns: repeat(2, 1fr);
+    grid-template-rows: repeat(2, 1fr);
+}
+
+.grid-item {
+    overflow: hidden;
+}
+
+.grid-item .carousel-container {
+    height: 100%;
+}
+
+.grid-item .carousel-loading {
+    height: 100%;
+}
