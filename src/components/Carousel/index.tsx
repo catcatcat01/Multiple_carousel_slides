@@ -141,15 +141,19 @@ export default function Carousel(props: { bgColor: string }) {
 
   const currentPage = useMemo(() => (appConfig.pages && appConfig.pages.find(p => p.id === currentPageId)) || (appConfig.pages && appConfig.pages[0]), [appConfig, currentPageId]);
   
-  // Force show config if logic suggests it, or if we are in a fallback state
-  const showConfig = (dashboard && dashboard.state === DashboardState.Config) || isCreate || !(appConfig.pages && appConfig.pages.length) || !(currentPage && currentPage.tableId);
+  // Config mode indicator and grid display decision
+  const inConfigMode = (dashboard && (dashboard.state === DashboardState.Config || dashboard.state === DashboardState.Create)) || isCreate;
+  const hasAnyConfiguredPage = useMemo(() => (appConfig.pages && appConfig.pages.some(p => !!p.tableId)) || false, [appConfig.pages]);
+  const shouldShowGrid = !!(appConfig.pages && appConfig.pages.length) && hasAnyConfiguredPage;
 
   // Removed the useEffect that added default page, as we now initialize with it.
 
   return (
-    <main style={{ backgroundColor: props.bgColor }} className={classnames({ 'main-config': showConfig, 'main': true })}>
+    <main style={{ backgroundColor: props.bgColor }} className={classnames({ 'main-config': inConfigMode, 'main': true })}>
       <div className='content'>
-        {showConfig ? (
+        {shouldShowGrid ? (
+          <GridView pages={appConfig.pages || []} intervalMs={appConfig.groupIntervalMs || 5000} />
+        ) : (
           <CarouselView config={currentPage || {
             limit: 10,
             intervalMs: 3000,
@@ -158,12 +162,10 @@ export default function Carousel(props: { bgColor: string }) {
             showIndicators: true,
             latestFirst: true,
             preferViewOrder: true,
-          } as ICarouselConfig} isConfig={showConfig} />
-        ) : (
-          <GridView pages={appConfig.pages || []} intervalMs={appConfig.groupIntervalMs || 5000} />
+          } as ICarouselConfig} isConfig={true} />
         )}
       </div>
-      {showConfig && (
+      {inConfigMode && (
         <div className='config-panel'>
           <PagesManagerPanel
             t={t}
