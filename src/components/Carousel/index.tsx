@@ -24,6 +24,8 @@ interface ICarouselConfig {
   refreshMs: number;
   color: string;
   showIndicators: boolean;
+  titleFontSize?: number;
+  descFontSize?: number;
 }
 
 interface IPageConfig extends ICarouselConfig {
@@ -83,6 +85,10 @@ export default function Carousel(props: { bgColor: string }) {
       const themeMode = (document.body.getAttribute('theme-mode') || '').toLowerCase();
       const defaultColor = themeMode === 'dark' ? 'var(--ccm-chart-W500)' : 'var(--ccm-chart-N700)';
       const normalize = (v?: string) => (v === 'undefined' || v === 'null' || v === '' ? undefined : v);
+      const parseNum = (x: any) => {
+        const n = Number(x);
+        return isNaN(n) ? undefined : n;
+      };
       const toPage = (raw: any, idx: number): IPageConfig => {
         const base: ICarouselConfig = {
           limit: raw?.limit ?? 10,
@@ -98,6 +104,8 @@ export default function Carousel(props: { bgColor: string }) {
           descFieldId: normalize(raw?.descFieldId),
           imageFieldId: normalize(raw?.imageFieldId),
           timeFieldId: normalize(raw?.timeFieldId),
+          titleFontSize: parseNum(raw?.titleFontSize),
+          descFontSize: parseNum(raw?.descFontSize),
         } as ICarouselConfig;
         return {
           id: String(raw?.id || `page-${idx + 1}`),
@@ -613,57 +621,6 @@ function CarouselView({ config, isConfig, active = true }: { config: ICarouselCo
         setIndex(v => idsChanged ? 0 : Math.min(v, cachedNow.length ? cachedNow.length - 1 : 0));
         setLoading(false);
       } else {
-        const firstId = takeIds[0];
-        let firstSlide: ISlide = { id: firstId, title: '', desc: '', imageUrl: undefined };
-        try {
-          let title = '';
-          let desc = '';
-          let imageUrl: string | undefined = undefined;
-          if (firstId) {
-            const tasks: Promise<void>[] = [];
-            tasks.push((async () => {
-              if (titleFieldRef.current) {
-                try { const val = await (titleFieldRef.current as any).getValue(firstId); title = toPlainText(val); } catch (_) {}
-              }
-            })());
-            tasks.push((async () => {
-              if (descFieldRef.current) {
-                try { const val = await (descFieldRef.current as any).getValue(firstId); desc = toPlainText(val); } catch (_) {}
-              }
-            })());
-            tasks.push((async () => {
-              if (imageFieldRef.current) {
-                try {
-                  const raw = await (imageFieldRef.current as any).getValue(firstId);
-                  imageUrl = pickAttachmentUrl(raw);
-                  if (!imageUrl) {
-                    try {
-                      const urls: string[] = await (imageFieldRef.current as any).getAttachmentUrls(firstId);
-                      imageUrl = urls && urls.length ? urls[0] : undefined;
-                    } catch (_) {}
-                  }
-                } catch (_) {}
-              }
-            })());
-            await Promise.all(tasks);
-            firstSlide = { id: firstId, title, desc, imageUrl };
-            cacheRef.current[firstId] = firstSlide;
-          }
-        if (firstSlide.imageUrl) {
-          const img = new Image();
-          img.decoding = 'async' as any;
-          img.onload = () => { preloadedRef.current[firstSlide.imageUrl as string] = true; };
-          img.onerror = async () => {
-            preloadedRef.current[firstSlide.imageUrl as string] = false;
-            await refreshImageUrlFor(firstSlide.id);
-          };
-          img.src = firstSlide.imageUrl as string;
-        }
-        } catch (_) {}
-        lastIdsRef.current = takeIds.slice();
-        setSlides(firstSlide.id ? [firstSlide] : []);
-        setIndex(0);
-        setLoading(false);
       }
 
       const result: ISlide[] = await Promise.all(takeIds.map(async (rid) => {
@@ -766,6 +723,16 @@ function CarouselView({ config, isConfig, active = true }: { config: ICarouselCo
     });
   }, [slides, index]);
 
+  useEffect(() => {
+    if (!slides.length) return;
+    slides.forEach(s => {
+      const u = s?.imageUrl;
+      if (s && u && preloadedRef.current[u] !== true) {
+        preloadWithRefresh(s.id, u);
+      }
+    });
+  }, [slides]);
+
   const planNext = useCallback(() => {
     const delay = Math.max(500, config.intervalMs || 3000);
     if (!slides.length) return;
@@ -823,7 +790,7 @@ function CarouselView({ config, isConfig, active = true }: { config: ICarouselCo
   }
 
   const current = slides[index];
-  const showImage = current?.imageUrl ? preloadedRef.current[current.imageUrl] !== false : false;
+  const showImage = current?.imageUrl ? preloadedRef.current[current.imageUrl] === true : false;
   const hasText = !!(current?.title) || !!(current?.desc);
 
   return (
@@ -832,8 +799,8 @@ function CarouselView({ config, isConfig, active = true }: { config: ICarouselCo
         {showImage ? <img className='carousel-image' src={current.imageUrl as string} decoding='async' loading='eager' {...({ fetchpriority: 'high' } as any)} onLoad={() => { if (current.imageUrl) preloadedRef.current[current.imageUrl] = true; }} onError={async () => { if (current.imageUrl) preloadedRef.current[current.imageUrl] = false; await refreshImageUrlFor(current.id); }} /> : null}
         {hasText ? (
           <>
-            {current.title ? <div className='carousel-title'>{current.title}</div> : null}
-            {current.desc ? <div className='carousel-desc'>{current.desc}</div> : null}
+            {current.title ? <div className='carousel-title' style={{ fontSize: config.titleFontSize ? `${config.titleFontSize}px` : undefined }}>{current.title}</div> : null}
+            {current.desc ? <div className='carousel-desc' style={{ fontSize: config.descFontSize ? `${config.descFontSize}px` : undefined }}>{current.desc}</div> : null}
           </>
         ) : (!showImage ? <div className='carousel-title' style={{ color }}>暂无数据或字段未配置</div> : null)}
       </div>
@@ -913,6 +880,12 @@ function ConfigPanel({ t, config, setConfig, onSave }: { t: any, config: IPageCo
         </Item>
         <Item label={t('carousel.label.descField')}>
           <Select value={config.descFieldId} optionList={fieldOptions} onChange={(v) => setConfig({ ...config, descFieldId: v == null ? undefined : String(v) })} style={{ width: '100%' }} />
+        </Item>
+        <Item label={'标题字号(px)'}>
+          <InputNumber value={config.titleFontSize} min={8} max={120} onChange={(v) => setConfig({ ...config, titleFontSize: Number(v) || undefined })} style={{ width: '100%' }} />
+        </Item>
+        <Item label={'描述字号(px)'}>
+          <InputNumber value={config.descFontSize} min={8} max={120} onChange={(v) => setConfig({ ...config, descFontSize: Number(v) || undefined })} style={{ width: '100%' }} />
         </Item>
         <Item label={t('carousel.label.imageField')}>
           <Select value={config.imageFieldId} optionList={imageFieldOptions} onChange={(v) => setConfig({ ...config, imageFieldId: v == null ? undefined : String(v) })} style={{ width: '100%' }} />
