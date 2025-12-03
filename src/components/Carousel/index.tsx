@@ -392,6 +392,7 @@ function CarouselView({ config, isConfig, active = true }: { config: ICarouselCo
   const playRef = useRef<any>();
   const playTimeout = useRef<any>();
   const refreshRef = useRef<any>();
+  const inFlightRef = useRef<boolean>(false);
   const lastIdsRef = useRef<string[]>([]);
   const cacheRef = useRef<Record<string, ISlide>>({});
   const tableRef = useRef<ITable | null>(null);
@@ -538,6 +539,8 @@ function CarouselView({ config, isConfig, active = true }: { config: ICarouselCo
 
   const loadData = async () => {
     try {
+      if (inFlightRef.current) return;
+      inFlightRef.current = true;
       if (!slides.length) setLoading(true);
       let table: ITable | null = tableRef.current;
       const needNewTable = !table || tableIdRef.current !== config.tableId;
@@ -621,6 +624,11 @@ function CarouselView({ config, isConfig, active = true }: { config: ICarouselCo
         setIndex(v => idsChanged ? 0 : Math.min(v, cachedNow.length ? cachedNow.length - 1 : 0));
         setLoading(false);
       } else {
+        if (!slides.length && takeIds.length) {
+          setSlides(takeIds.map(id => ({ id, title: '', desc: '', imageUrl: undefined })));
+          setIndex(0);
+          setLoading(false);
+        }
         let firstSlide: ISlide = { id: '', title: '', desc: '', imageUrl: undefined };
         try {
           for (const rid of takeIds) {
@@ -738,6 +746,9 @@ function CarouselView({ config, isConfig, active = true }: { config: ICarouselCo
     } catch (e) {
       console.error(e);
       setLoading(false);
+    }
+    finally {
+      inFlightRef.current = false;
     }
   };
 
