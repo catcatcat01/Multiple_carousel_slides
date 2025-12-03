@@ -489,6 +489,21 @@ function CarouselView({ config, isConfig, active = true }: { config: ICarouselCo
     return 0;
   };
 
+  const mapLimit = async <T, R>(arr: T[], limit: number, fn: (x: T, idx: number) => Promise<R>): Promise<R[]> => {
+    const ret: R[] = new Array(arr.length);
+    let i = 0;
+    const n = Math.max(1, limit || 1);
+    const workers = Array.from({ length: n }).map(async () => {
+      while (true) {
+        const cur = i++;
+        if (cur >= arr.length) break;
+        ret[cur] = await fn(arr[cur], cur);
+      }
+    });
+    await Promise.all(workers);
+    return ret;
+  };
+
   const refreshImageUrlFor = useCallback(async (rid: string): Promise<string | undefined> => {
     try {
       const field = imageFieldRef.current;
@@ -598,14 +613,14 @@ function CarouselView({ config, isConfig, active = true }: { config: ICarouselCo
       let sortedIds = recordIds.slice();
       const useViewOrderFast = !!config.preferViewOrder && !!viewId;
       if (timeFieldRef.current && !useViewOrderFast) {
-        const pairs: { id: string, ts: number }[] = await Promise.all(sortedIds.map(async (rid) => {
+        const pairs: { id: string, ts: number }[] = await mapLimit(sortedIds, 8, async (rid) => {
           let ts = 0;
           try {
             const v = await (timeFieldRef.current as any).getValue(rid);
             ts = toTimestamp(v);
           } catch (_) {}
           return { id: rid, ts };
-        }));
+        });
         pairs.sort((a, b) => (config.latestFirst ? b.ts - a.ts : a.ts - b.ts));
         sortedIds = pairs.map(p => p.id);
       } else if (useViewOrderFast) {
@@ -632,38 +647,22 @@ function CarouselView({ config, isConfig, active = true }: { config: ICarouselCo
         let firstSlide: ISlide = { id: '', title: '', desc: '', imageUrl: undefined };
         try {
           for (const rid of takeIds) {
-            let title = '';
-            let desc = '';
             let imageUrl: string | undefined = undefined;
-            const tasks: Promise<void>[] = [];
-            tasks.push((async () => {
-              if (titleFieldRef.current) {
-                try { const val = await (titleFieldRef.current as any).getValue(rid); title = toPlainText(val); } catch (_) {}
-              }
-            })());
-            tasks.push((async () => {
-              if (descFieldRef.current) {
-                try { const val = await (descFieldRef.current as any).getValue(rid); desc = toPlainText(val); } catch (_) {}
-              }
-            })());
-            tasks.push((async () => {
-              if (imageFieldRef.current) {
+            if (imageFieldRef.current) {
+              try {
+                const urls: string[] = await (imageFieldRef.current as any).getAttachmentUrls(rid);
+                imageUrl = urls && urls.length ? urls[0] : undefined;
+              } catch (_) {}
+              if (!imageUrl) {
                 try {
-                  const urls: string[] = await (imageFieldRef.current as any).getAttachmentUrls(rid);
-                  imageUrl = urls && urls.length ? urls[0] : undefined;
+                  const raw = await (imageFieldRef.current as any).getValue(rid);
+                  imageUrl = pickAttachmentUrl(raw);
                 } catch (_) {}
-                if (!imageUrl) {
-                  try {
-                    const raw = await (imageFieldRef.current as any).getValue(rid);
-                    imageUrl = pickAttachmentUrl(raw);
-                  } catch (_) {}
-                }
               }
-            })());
-            await Promise.all(tasks);
-            const candidate: ISlide = { id: rid, title, desc, imageUrl };
+            }
+            const candidate: ISlide = { id: rid, title: '', desc: '', imageUrl };
             cacheRef.current[rid] = candidate;
-            if (candidate.imageUrl || candidate.title || candidate.desc) {
+            if (candidate.imageUrl) {
               firstSlide = candidate;
               break;
             }
@@ -685,7 +684,7 @@ function CarouselView({ config, isConfig, active = true }: { config: ICarouselCo
         setLoading(false);
       }
 
-      const result: ISlide[] = await Promise.all(takeIds.map(async (rid) => {
+      const result: ISlide[] = await mapLimit(takeIds, 4, async (rid) => {
         const cached = cacheRef.current[rid];
         if (cached) return cached;
         try {
@@ -732,7 +731,7 @@ function CarouselView({ config, isConfig, active = true }: { config: ICarouselCo
         } catch (_) {
           return { id: rid, title: '', desc: '', imageUrl: undefined };
         }
-      }));
+      });
       const filtered = result.filter(s => !!(s.imageUrl || s.title || s.desc));
       const same = lastIdsRef.current.length === takeIds.length && lastIdsRef.current.every((id, i) => id === takeIds[i]);
       lastIdsRef.current = takeIds.slice();
