@@ -858,6 +858,7 @@ function CarouselView({ config, isConfig, active = true }: { config: ICarouselCo
   const current = slides[index];
   const showImage = current?.imageUrl ? preloadedRef.current[current.imageUrl] !== false : false;
   const hasText = !!(current?.title) || !!(current?.desc);
+  const waitingContent = !showImage && !hasText;
 
   return (
     <div className='carousel-container'>
@@ -868,7 +869,9 @@ function CarouselView({ config, isConfig, active = true }: { config: ICarouselCo
             {current.title ? <div className='carousel-title' style={{ fontSize: config.titleFontSize ? `${config.titleFontSize}px` : undefined }}>{current.title}</div> : null}
             {current.desc ? <div className='carousel-desc' style={{ fontSize: config.descFontSize ? `${config.descFontSize}px` : undefined }}>{current.desc}</div> : null}
           </>
-        ) : (isConfig && !showImage ? <div className='carousel-title' style={{ color }}>暂无数据或字段未配置</div> : null)}
+        ) : (
+          isConfig && !showImage ? <div className='carousel-title' style={{ color }}>暂无数据或字段未配置</div> : (waitingContent ? <div className='carousel-title' style={{ color }}>加载中...</div> : null)
+        )}
       </div>
       {config.showIndicators ? (
         <div className='carousel-indicators'>
