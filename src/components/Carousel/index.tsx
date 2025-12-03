@@ -348,6 +348,8 @@ function CarouselView({ config, isConfig, active = true }: { config: ICarouselCo
   const descFieldRef = useRef<any>(null);
   const timeFieldRef = useRef<any>(null);
   const fieldsMetaRef = useRef<IFieldMeta[] | null>(null);
+  const tableIdRef = useRef<string | undefined>(undefined);
+  const recordIdsCacheRef = useRef<{ ids: string[], viewId?: string, ts: number } | null>(null);
 
   const color = config.color || 'var(--ccm-chart-N700)';
 
@@ -484,23 +486,37 @@ function CarouselView({ config, isConfig, active = true }: { config: ICarouselCo
   const loadData = async () => {
     try {
       if (!slides.length) setLoading(true);
-      let table: ITable | null = null;
-      if (config.tableId) table = await bitable.base.getTableById(config.tableId);
-      if (!table) table = await bitable.base.getActiveTable();
-      tableRef.current = table;
+      let table: ITable | null = tableRef.current;
+      const needNewTable = !table || tableIdRef.current !== config.tableId;
+      if (needNewTable) {
+        if (config.tableId) {
+          table = await bitable.base.getTableById(config.tableId);
+        }
+        if (!table) table = await bitable.base.getActiveTable();
+        tableRef.current = table;
+        tableIdRef.current = config.tableId;
+      }
 
       const selection = await bitable.base.getSelection();
       const viewId = config.viewId || selection.viewId || undefined;
 
       let recordIds: string[] = [];
-      try {
-        if (viewId && (table as any).getView) {
-          const view = await (table as any).getView(viewId);
-          recordIds = await (view as any).getRecordIdList();
+      const now = Date.now();
+      const cached = recordIdsCacheRef.current;
+      const ttl = Math.max(5000, (config.refreshMs || 8000));
+      if (cached && cached.viewId === viewId && now - cached.ts < ttl) {
+        recordIds = cached.ids.slice();
+      } else {
+        try {
+          if (viewId && (table as any).getView) {
+            const view = await (table as any).getView(viewId);
+            recordIds = await (view as any).getRecordIdList();
+          }
+        } catch (_) {}
+        if (!recordIds.length) {
+          recordIds = await (table as any).getRecordIdList();
         }
-      } catch (_) {}
-      if (!recordIds.length) {
-        recordIds = await (table as any).getRecordIdList();
+        recordIdsCacheRef.current = { ids: recordIds.slice(), viewId, ts: now };
       }
       if (!fieldsMetaRef.current) {
         fieldsMetaRef.current = await (table as any).getFieldMetaList();
@@ -685,6 +701,8 @@ function CarouselView({ config, isConfig, active = true }: { config: ICarouselCo
     descFieldRef.current = null;
     imageFieldRef.current = null;
     timeFieldRef.current = null;
+    recordIdsCacheRef.current = null;
+    tableRef.current = null;
   }, [config.tableId, config.titleFieldId, config.descFieldId, config.imageFieldId, config.timeFieldId]);
 
   useEffect(() => {
