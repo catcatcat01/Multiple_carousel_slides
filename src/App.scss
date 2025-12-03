@@ -282,3 +282,7 @@ html,
 body {
     background: transparent !important;
 }
+
+html, body, #root {
+    height: 100%;
+}

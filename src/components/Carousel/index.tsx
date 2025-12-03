@@ -303,15 +303,16 @@ function GridView({ pages, intervalMs }: { pages: IPageConfig[], intervalMs: num
       if (timer) clearInterval(timer);
     };
   }, [pages.length, intervalMs]);
-  const visible = useMemo(() => {
-    if (!pages.length) return [] as IPageConfig[];
-    if (pages.length <= 4) return pages;
-    const list: IPageConfig[] = [];
-    for (let i = 0; i < 4; i++) {
-      list.push(pages[(start + i) % pages.length]);
+  const visibleIndexSet = useMemo(() => {
+    const set = new Set<number>();
+    if (!pages.length) return set;
+    if (pages.length <= 4) {
+      for (let i = 0; i < pages.length; i++) set.add(i);
+      return set;
     }
-    return list;
-  }, [pages, start]);
+    for (let i = 0; i < 4; i++) set.add((start + i) % pages.length);
+    return set;
+  }, [pages.length, start]);
   const cls = useMemo(() => {
     if (n === 1) return 'grid-root grid-n-1';
     if (n === 2) return 'grid-root grid-n-2';
@@ -320,16 +321,16 @@ function GridView({ pages, intervalMs }: { pages: IPageConfig[], intervalMs: num
   }, [n]);
   return (
     <div className={cls}>
-      {visible.map((p) => (
-        <div key={p.id} className='grid-item'>
-          <CarouselView config={p} isConfig={false} />
+      {pages.map((p, i) => (
+        <div key={p.id} className={classnames('grid-item', { 'grid-item-hidden': !visibleIndexSet.has(i) })}>
+          <CarouselView config={p} isConfig={false} active={visibleIndexSet.has(i)} />
         </div>
       ))}
     </div>
   );
 }
 
-function CarouselView({ config, isConfig }: { config: ICarouselConfig, isConfig: boolean }) {
+function CarouselView({ config, isConfig, active = true }: { config: ICarouselConfig, isConfig: boolean, active?: boolean }) {
   const { t } = useTranslation();
   const [slides, setSlides] = useState<ISlide[]>([]);
   const [index, setIndex] = useState(0);
@@ -477,7 +478,7 @@ function CarouselView({ config, isConfig }: { config: ICarouselConfig, isConfig:
 
   const loadData = async () => {
     try {
-      setLoading(true);
+      if (!slides.length) setLoading(true);
       let table: ITable | null = null;
       if (config.tableId) table = await bitable.base.getTableById(config.tableId);
       if (!table) table = await bitable.base.getActiveTable();
@@ -669,11 +670,13 @@ function CarouselView({ config, isConfig }: { config: ICarouselConfig, isConfig:
   useEffect(() => {
     loadData();
     if (refreshRef.current) clearInterval(refreshRef.current);
-    refreshRef.current = setInterval(loadData, Math.max(3000, config.refreshMs || 8000));
+    if (active) {
+      refreshRef.current = setInterval(loadData, Math.max(3000, config.refreshMs || 8000));
+    }
     return () => {
       if (refreshRef.current) clearInterval(refreshRef.current);
     };
-  }, [config.tableId, config.viewId, config.titleFieldId, config.descFieldId, config.imageFieldId, config.limit, config.refreshMs]);
+  }, [config.tableId, config.viewId, config.titleFieldId, config.descFieldId, config.imageFieldId, config.limit, config.refreshMs, active]);
 
   useEffect(() => {
     if (!slides.length) return;
@@ -722,13 +725,13 @@ function CarouselView({ config, isConfig }: { config: ICarouselConfig, isConfig:
 
   useEffect(() => {
     clearTimeout(playTimeout.current);
-    if (slides.length) {
+    if (slides.length && active) {
       playTimeout.current = setTimeout(planNext, Math.max(500, config.intervalMs || 3000));
     }
     return () => {
       clearTimeout(playTimeout.current);
     };
-  }, [slides.length, config.intervalMs, planNext]);
+  }, [slides.length, config.intervalMs, planNext, active]);
 
   if (loading && !slides.length) {
     return (
