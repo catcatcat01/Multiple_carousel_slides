@@ -621,32 +621,31 @@ function CarouselView({ config, isConfig, active = true }: { config: ICarouselCo
         setIndex(v => idsChanged ? 0 : Math.min(v, cachedNow.length ? cachedNow.length - 1 : 0));
         setLoading(false);
       } else {
-        const firstId = takeIds[0];
-        let firstSlide: ISlide = { id: firstId, title: '', desc: '', imageUrl: undefined };
+        let firstSlide: ISlide = { id: '', title: '', desc: '', imageUrl: undefined };
         try {
-          let title = '';
-          let desc = '';
-          let imageUrl: string | undefined = undefined;
-          if (firstId) {
+          for (const rid of takeIds) {
+            let title = '';
+            let desc = '';
+            let imageUrl: string | undefined = undefined;
             const tasks: Promise<void>[] = [];
             tasks.push((async () => {
               if (titleFieldRef.current) {
-                try { const val = await (titleFieldRef.current as any).getValue(firstId); title = toPlainText(val); } catch (_) {}
+                try { const val = await (titleFieldRef.current as any).getValue(rid); title = toPlainText(val); } catch (_) {}
               }
             })());
             tasks.push((async () => {
               if (descFieldRef.current) {
-                try { const val = await (descFieldRef.current as any).getValue(firstId); desc = toPlainText(val); } catch (_) {}
+                try { const val = await (descFieldRef.current as any).getValue(rid); desc = toPlainText(val); } catch (_) {}
               }
             })());
             tasks.push((async () => {
               if (imageFieldRef.current) {
                 try {
-                  const raw = await (imageFieldRef.current as any).getValue(firstId);
+                  const raw = await (imageFieldRef.current as any).getValue(rid);
                   imageUrl = pickAttachmentUrl(raw);
                   if (!imageUrl) {
                     try {
-                      const urls: string[] = await (imageFieldRef.current as any).getAttachmentUrls(firstId);
+                      const urls: string[] = await (imageFieldRef.current as any).getAttachmentUrls(rid);
                       imageUrl = urls && urls.length ? urls[0] : undefined;
                     } catch (_) {}
                   }
@@ -654,8 +653,12 @@ function CarouselView({ config, isConfig, active = true }: { config: ICarouselCo
               }
             })());
             await Promise.all(tasks);
-            firstSlide = { id: firstId, title, desc, imageUrl };
-            cacheRef.current[firstId] = firstSlide;
+            const candidate: ISlide = { id: rid, title, desc, imageUrl };
+            cacheRef.current[rid] = candidate;
+            if (candidate.imageUrl || candidate.title || candidate.desc) {
+              firstSlide = candidate;
+              break;
+            }
           }
           if (firstSlide.imageUrl) {
             const img = new Image();
@@ -722,9 +725,10 @@ function CarouselView({ config, isConfig, active = true }: { config: ICarouselCo
           return { id: rid, title: '', desc: '', imageUrl: undefined };
         }
       }));
+      const filtered = result.filter(s => !!(s.imageUrl || s.title || s.desc));
       const same = lastIdsRef.current.length === takeIds.length && lastIdsRef.current.every((id, i) => id === takeIds[i]);
       lastIdsRef.current = takeIds.slice();
-      setSlides(result);
+      setSlides(filtered.length ? filtered : result);
       if (!same) {
         setIndex(0);
       } else {
