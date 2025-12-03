@@ -621,6 +621,10 @@ function CarouselView({ config, isConfig, active = true }: { config: ICarouselCo
         setIndex(v => idsChanged ? 0 : Math.min(v, cachedNow.length ? cachedNow.length - 1 : 0));
         setLoading(false);
       } else {
+        lastIdsRef.current = takeIds.slice();
+        setSlides(takeIds.map(id => ({ id, title: '', desc: '', imageUrl: undefined })));
+        setIndex(0);
+        setLoading(false);
       }
 
       const result: ISlide[] = await Promise.all(takeIds.map(async (rid) => {
@@ -790,7 +794,7 @@ function CarouselView({ config, isConfig, active = true }: { config: ICarouselCo
   }
 
   const current = slides[index];
-  const showImage = current?.imageUrl ? preloadedRef.current[current.imageUrl] === true : false;
+  const showImage = current?.imageUrl ? preloadedRef[current.imageUrl] !== false : false;
   const hasText = !!(current?.title) || !!(current?.desc);
 
   return (
