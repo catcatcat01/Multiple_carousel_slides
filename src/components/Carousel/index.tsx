@@ -344,6 +344,10 @@ function CarouselView({ config, isConfig, active = true }: { config: ICarouselCo
   const tableRef = useRef<ITable | null>(null);
   const imageFieldRef = useRef<IAttachmentField | null>(null);
   const preloadedRef = useRef<Record<string, boolean>>({});
+  const titleFieldRef = useRef<any>(null);
+  const descFieldRef = useRef<any>(null);
+  const timeFieldRef = useRef<any>(null);
+  const fieldsMetaRef = useRef<IFieldMeta[] | null>(null);
 
   const color = config.color || 'var(--ccm-chart-N700)';
 
@@ -498,38 +502,34 @@ function CarouselView({ config, isConfig, active = true }: { config: ICarouselCo
       if (!recordIds.length) {
         recordIds = await (table as any).getRecordIdList();
       }
-
-      const allFieldMeta: IFieldMeta[] = await (table as any).getFieldMetaList();
-      const titleFieldId = config.titleFieldId || allFieldMeta.find(v => v.isPrimary)?.id;
+      if (!fieldsMetaRef.current) {
+        fieldsMetaRef.current = await (table as any).getFieldMetaList();
+      }
+      const titleFieldId = config.titleFieldId || (fieldsMetaRef.current?.find(v => v.isPrimary)?.id);
       const descFieldId = config.descFieldId;
-      const imageFieldId = config.imageFieldId || allFieldMeta.find(f => f.type === FieldType.Attachment)?.id;
+      const imageFieldId = config.imageFieldId || (fieldsMetaRef.current?.find(f => f.type === FieldType.Attachment)?.id);
       const timeFieldId = config.timeFieldId;
 
-      let titleField: any = null;
-      let descField: any = null;
-      let imageField: IAttachmentField | null = null;
-      let timeField: any = null;
-      try {
-        if (titleFieldId) titleField = await (table as any).getField(titleFieldId);
-      } catch (e) {}
-      try {
-        if (descFieldId) descField = await (table as any).getField(descFieldId);
-      } catch (e) {}
-      try {
-        if (imageFieldId) imageField = await (table as any).getField(imageFieldId) as IAttachmentField;
-      } catch (e) {}
-      imageFieldRef.current = imageField;
-      try {
-        if (timeFieldId) timeField = await (table as any).getField(timeFieldId);
-      } catch (e) {}
+      if (titleFieldId && !titleFieldRef.current) {
+        try { titleFieldRef.current = await (table as any).getField(titleFieldId); } catch (_) {}
+      }
+      if (descFieldId && !descFieldRef.current) {
+        try { descFieldRef.current = await (table as any).getField(descFieldId); } catch (_) {}
+      }
+      if (imageFieldId && !imageFieldRef.current) {
+        try { imageFieldRef.current = await (table as any).getField(imageFieldId) as IAttachmentField; } catch (_) {}
+      }
+      if (timeFieldId && !timeFieldRef.current) {
+        try { timeFieldRef.current = await (table as any).getField(timeFieldId); } catch (_) {}
+      }
 
       let sortedIds = recordIds.slice();
       const useViewOrderFast = !!config.preferViewOrder && !!viewId;
-      if (timeField && !useViewOrderFast) {
+      if (timeFieldRef.current && !useViewOrderFast) {
         const pairs: { id: string, ts: number }[] = await Promise.all(sortedIds.map(async (rid) => {
           let ts = 0;
           try {
-            const v = await (timeField as any).getValue(rid);
+            const v = await (timeFieldRef.current as any).getValue(rid);
             ts = toTimestamp(v);
           } catch (_) {}
           return { id: rid, ts };
@@ -561,23 +561,23 @@ function CarouselView({ config, isConfig, active = true }: { config: ICarouselCo
           if (firstId) {
             const tasks: Promise<void>[] = [];
             tasks.push((async () => {
-              if (titleField) {
-                try { const val = await (titleField as any).getValue(firstId); title = toPlainText(val); } catch (_) {}
+              if (titleFieldRef.current) {
+                try { const val = await (titleFieldRef.current as any).getValue(firstId); title = toPlainText(val); } catch (_) {}
               }
             })());
             tasks.push((async () => {
-              if (descField) {
-                try { const val = await (descField as any).getValue(firstId); desc = toPlainText(val); } catch (_) {}
+              if (descFieldRef.current) {
+                try { const val = await (descFieldRef.current as any).getValue(firstId); desc = toPlainText(val); } catch (_) {}
               }
             })());
             tasks.push((async () => {
-              if (imageField) {
+              if (imageFieldRef.current) {
                 try {
-                  const raw = await (imageField as any).getValue(firstId);
+                  const raw = await (imageFieldRef.current as any).getValue(firstId);
                   imageUrl = pickAttachmentUrl(raw);
                   if (!imageUrl) {
                     try {
-                      const urls: string[] = await imageField.getAttachmentUrls(firstId);
+                      const urls: string[] = await (imageFieldRef.current as any).getAttachmentUrls(firstId);
                       imageUrl = urls && urls.length ? urls[0] : undefined;
                     } catch (_) {}
                   }
@@ -615,29 +615,29 @@ function CarouselView({ config, isConfig, active = true }: { config: ICarouselCo
 
           await Promise.all([
             (async () => {
-              if (titleField) {
+              if (titleFieldRef.current) {
                 try {
-                  const val = await (titleField as any).getValue(rid);
+                  const val = await (titleFieldRef.current as any).getValue(rid);
                   title = toPlainText(val);
                 } catch (_) {}
               }
             })(),
             (async () => {
-              if (descField) {
+              if (descFieldRef.current) {
                 try {
-                  const val = await (descField as any).getValue(rid);
+                  const val = await (descFieldRef.current as any).getValue(rid);
                   desc = toPlainText(val);
                 } catch (_) {}
               }
             })(),
             (async () => {
-              if (imageField) {
+              if (imageFieldRef.current) {
                 try {
-                  const raw = await (imageField as any).getValue(rid);
+                  const raw = await (imageFieldRef.current as any).getValue(rid);
                   imageUrl = pickAttachmentUrl(raw);
                   if (!imageUrl) {
                     try {
-                      const urls: string[] = await imageField.getAttachmentUrls(rid);
+                      const urls: string[] = await (imageFieldRef.current as any).getAttachmentUrls(rid);
                       imageUrl = urls && urls.length ? urls[0] : undefined;
                     } catch (_) {}
                   }
@@ -678,6 +678,14 @@ function CarouselView({ config, isConfig, active = true }: { config: ICarouselCo
       if (refreshRef.current) clearInterval(refreshRef.current);
     };
   }, [config.tableId, config.viewId, config.titleFieldId, config.descFieldId, config.imageFieldId, config.limit, config.refreshMs, active]);
+
+  useEffect(() => {
+    fieldsMetaRef.current = null;
+    titleFieldRef.current = null;
+    descFieldRef.current = null;
+    imageFieldRef.current = null;
+    timeFieldRef.current = null;
+  }, [config.tableId, config.titleFieldId, config.descFieldId, config.imageFieldId, config.timeFieldId]);
 
   useEffect(() => {
     if (!slides.length) return;
