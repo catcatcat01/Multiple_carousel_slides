@@ -843,10 +843,10 @@ function CarouselView({ config, isConfig, active = true }: { config: ICarouselCo
 
   const current = slides[index];
   const preloadStatus = current?.imageUrl ? preloadedRef.current[current.imageUrl] : undefined;
-  const showImage = preloadStatus === true;
   const hasText = !!(current?.title) || !!(current?.desc);
   const isImageError = preloadStatus === false;
-  const waitingContent = preloadStatus === undefined && !hasText;
+  const showImage = !!current?.imageUrl && preloadStatus !== false;
+  const waitingContent = !current?.imageUrl && !hasText;
 
   return (
     <div className='carousel-container'>
