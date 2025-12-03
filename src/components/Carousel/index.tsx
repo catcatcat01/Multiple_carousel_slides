@@ -621,8 +621,55 @@ function CarouselView({ config, isConfig, active = true }: { config: ICarouselCo
         setIndex(v => idsChanged ? 0 : Math.min(v, cachedNow.length ? cachedNow.length - 1 : 0));
         setLoading(false);
       } else {
+        const firstId = takeIds[0];
+        let firstSlide: ISlide = { id: firstId, title: '', desc: '', imageUrl: undefined };
+        try {
+          let title = '';
+          let desc = '';
+          let imageUrl: string | undefined = undefined;
+          if (firstId) {
+            const tasks: Promise<void>[] = [];
+            tasks.push((async () => {
+              if (titleFieldRef.current) {
+                try { const val = await (titleFieldRef.current as any).getValue(firstId); title = toPlainText(val); } catch (_) {}
+              }
+            })());
+            tasks.push((async () => {
+              if (descFieldRef.current) {
+                try { const val = await (descFieldRef.current as any).getValue(firstId); desc = toPlainText(val); } catch (_) {}
+              }
+            })());
+            tasks.push((async () => {
+              if (imageFieldRef.current) {
+                try {
+                  const raw = await (imageFieldRef.current as any).getValue(firstId);
+                  imageUrl = pickAttachmentUrl(raw);
+                  if (!imageUrl) {
+                    try {
+                      const urls: string[] = await (imageFieldRef.current as any).getAttachmentUrls(firstId);
+                      imageUrl = urls && urls.length ? urls[0] : undefined;
+                    } catch (_) {}
+                  }
+                } catch (_) {}
+              }
+            })());
+            await Promise.all(tasks);
+            firstSlide = { id: firstId, title, desc, imageUrl };
+            cacheRef.current[firstId] = firstSlide;
+          }
+          if (firstSlide.imageUrl) {
+            const img = new Image();
+            img.decoding = 'async' as any;
+            img.onload = () => { preloadedRef.current[firstSlide.imageUrl as string] = true; };
+            img.onerror = async () => {
+              preloadedRef.current[firstSlide.imageUrl as string] = false;
+              await refreshImageUrlFor(firstSlide.id);
+            };
+            img.src = firstSlide.imageUrl as string;
+          }
+        } catch (_) {}
         lastIdsRef.current = takeIds.slice();
-        setSlides(takeIds.map(id => ({ id, title: '', desc: '', imageUrl: undefined })));
+        setSlides(firstSlide.id ? [firstSlide] : []);
         setIndex(0);
         setLoading(false);
       }
@@ -806,7 +853,7 @@ function CarouselView({ config, isConfig, active = true }: { config: ICarouselCo
             {current.title ? <div className='carousel-title' style={{ fontSize: config.titleFontSize ? `${config.titleFontSize}px` : undefined }}>{current.title}</div> : null}
             {current.desc ? <div className='carousel-desc' style={{ fontSize: config.descFontSize ? `${config.descFontSize}px` : undefined }}>{current.desc}</div> : null}
           </>
-        ) : (!showImage ? <div className='carousel-title' style={{ color }}>暂无数据或字段未配置</div> : null)}
+        ) : (isConfig && !showImage ? <div className='carousel-title' style={{ color }}>暂无数据或字段未配置</div> : null)}
       </div>
       {config.showIndicators ? (
         <div className='carousel-indicators'>
