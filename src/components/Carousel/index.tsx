@@ -288,7 +288,7 @@ function PagesManagerPanel({ t, appConfig, setAppConfig, currentPageId, setCurre
 
 function GridView({ pages, intervalMs }: { pages: IPageConfig[], intervalMs: number }) {
   const [start, setStart] = useState(0);
-  const n = (pages.length || 0) <= 4 ? (pages.length || 0) : 1;
+  const n = Math.min(4, pages.length || 0);
   useEffect(() => {
     setStart(0);
   }, [pages.length]);
@@ -306,7 +306,11 @@ function GridView({ pages, intervalMs }: { pages: IPageConfig[], intervalMs: num
   const visible = useMemo(() => {
     if (!pages.length) return [] as IPageConfig[];
     if (pages.length <= 4) return pages;
-    return [pages[start]];
+    const list: IPageConfig[] = [];
+    for (let i = 0; i < 4; i++) {
+      list.push(pages[(start + i) % pages.length]);
+    }
+    return list;
   }, [pages, start]);
   const cls = useMemo(() => {
     if (n === 1) return 'grid-root grid-n-1';
