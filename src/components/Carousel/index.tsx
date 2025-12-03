@@ -794,7 +794,7 @@ function CarouselView({ config, isConfig, active = true }: { config: ICarouselCo
   }
 
   const current = slides[index];
-  const showImage = current?.imageUrl ? preloadedRef[current.imageUrl] !== false : false;
+  const showImage = current?.imageUrl ? preloadedRef.current[current.imageUrl] !== false : false;
   const hasText = !!(current?.title) || !!(current?.desc);
 
   return (
