@@ -453,14 +453,14 @@ function CarouselView({ config, isConfig, active = true }: { config: ICarouselCo
     const arr = Array.isArray(val) ? val : [val];
     for (const item of arr) {
       if (!item || typeof item !== 'object') continue;
-      const cand = (item as any).url
-        || (item as any).fsUrl
-        || (item as any).fs_url
+      const cand = (item as any).thumbnailUrl
+        || (item as any).thumbnail_url
         || (item as any).previewUrl
         || (item as any).preview_url
-        || (item as any).thumbnailUrl
-        || (item as any).thumbnail_url
-        || (item as any).picUrl;
+        || (item as any).picUrl
+        || (item as any).url
+        || (item as any).fsUrl
+        || (item as any).fs_url;
       if (typeof cand === 'string' && cand) return cand;
     }
     return undefined;
@@ -504,21 +504,26 @@ function CarouselView({ config, isConfig, active = true }: { config: ICarouselCo
     return ret;
   };
 
-  const refreshImageUrlFor = useCallback(async (rid: string): Promise<string | undefined> => {
+  const getPreferredImageUrl = useCallback(async (rid: string): Promise<string | undefined> => {
+    const field = imageFieldRef.current;
+    if (!field) return undefined;
+    let imageUrl: string | undefined = undefined;
     try {
-      const field = imageFieldRef.current;
-      if (!field) return undefined;
-      let imageUrl: string | undefined = undefined;
+      const raw = await (field as any).getValue(rid);
+      imageUrl = pickAttachmentUrl(raw);
+    } catch (_) {}
+    if (!imageUrl) {
       try {
         const urls: string[] = await (field as any).getAttachmentUrls(rid);
         imageUrl = urls && urls.length ? urls[0] : undefined;
       } catch (_) {}
-      if (!imageUrl) {
-        try {
-          const raw = await (field as any).getValue(rid);
-          imageUrl = pickAttachmentUrl(raw);
-        } catch (_) {}
-      }
+    }
+    return imageUrl;
+  }, []);
+
+  const refreshImageUrlFor = useCallback(async (rid: string): Promise<string | undefined> => {
+    try {
+      const imageUrl = await getPreferredImageUrl(rid);
       if (imageUrl) {
         const prev = cacheRef.current[rid] || { id: rid, title: '', desc: '' };
         const nextSlide = { ...prev, imageUrl } as ISlide;
@@ -529,7 +534,7 @@ function CarouselView({ config, isConfig, active = true }: { config: ICarouselCo
     } catch (_) {
       return undefined;
     }
-  }, []);
+  }, [getPreferredImageUrl]);
 
   const preloadWithRefresh = useCallback(async (rid: string, url?: string): Promise<boolean> => {
     const tryLoad = (u: string) => new Promise<boolean>((resolve) => {
@@ -649,16 +654,7 @@ function CarouselView({ config, isConfig, active = true }: { config: ICarouselCo
           for (const rid of takeIds) {
             let imageUrl: string | undefined = undefined;
             if (imageFieldRef.current) {
-              try {
-                const urls: string[] = await (imageFieldRef.current as any).getAttachmentUrls(rid);
-                imageUrl = urls && urls.length ? urls[0] : undefined;
-              } catch (_) {}
-              if (!imageUrl) {
-                try {
-                  const raw = await (imageFieldRef.current as any).getValue(rid);
-                  imageUrl = pickAttachmentUrl(raw);
-                } catch (_) {}
-              }
+              imageUrl = await getPreferredImageUrl(rid);
             }
             const candidate: ISlide = { id: rid, title: '', desc: '', imageUrl };
             cacheRef.current[rid] = candidate;
@@ -684,7 +680,7 @@ function CarouselView({ config, isConfig, active = true }: { config: ICarouselCo
         setLoading(false);
       }
 
-      const result: ISlide[] = await mapLimit(takeIds, 4, async (rid) => {
+      const result: ISlide[] = await mapLimit(takeIds, 8, async (rid) => {
         const cached = cacheRef.current[rid];
         if (cached) return cached;
         try {
@@ -711,16 +707,7 @@ function CarouselView({ config, isConfig, active = true }: { config: ICarouselCo
             })(),
             (async () => {
               if (imageFieldRef.current) {
-                try {
-                  const urls: string[] = await (imageFieldRef.current as any).getAttachmentUrls(rid);
-                  imageUrl = urls && urls.length ? urls[0] : undefined;
-                } catch (_) {}
-                if (!imageUrl) {
-                  try {
-                    const raw = await (imageFieldRef.current as any).getValue(rid);
-                    imageUrl = pickAttachmentUrl(raw);
-                  } catch (_) {}
-                }
+                imageUrl = await getPreferredImageUrl(rid);
               }
             })(),
           ]);
