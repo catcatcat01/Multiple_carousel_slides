@@ -339,6 +339,9 @@ function CarouselView({ config, isConfig }: { config: ICarouselConfig, isConfig:
   const refreshRef = useRef<any>();
   const lastIdsRef = useRef<string[]>([]);
   const cacheRef = useRef<Record<string, ISlide>>({});
+  const tableRef = useRef<ITable | null>(null);
+  const imageFieldRef = useRef<IAttachmentField | null>(null);
+  const preloadedRef = useRef<Record<string, boolean>>({});
 
   const color = config.color || 'var(--ccm-chart-N700)';
 
@@ -424,12 +427,61 @@ function CarouselView({ config, isConfig }: { config: ICarouselConfig, isConfig:
     return 0;
   };
 
+  const refreshImageUrlFor = useCallback(async (rid: string): Promise<string | undefined> => {
+    try {
+      const field = imageFieldRef.current;
+      if (!field) return undefined;
+      let imageUrl: string | undefined = undefined;
+      try {
+        const raw = await (field as any).getValue(rid);
+        imageUrl = pickAttachmentUrl(raw);
+      } catch (_) {}
+      if (!imageUrl) {
+        try {
+          const urls: string[] = await (field as any).getAttachmentUrls(rid);
+          imageUrl = urls && urls.length ? urls[0] : undefined;
+        } catch (_) {}
+      }
+      if (imageUrl) {
+        const prev = cacheRef.current[rid] || { id: rid, title: '', desc: '' };
+        const nextSlide = { ...prev, imageUrl } as ISlide;
+        cacheRef.current[rid] = nextSlide;
+        setSlides((prevList) => prevList.map(s => (s.id === rid ? nextSlide : s)));
+      }
+      return imageUrl;
+    } catch (_) {
+      return undefined;
+    }
+  }, []);
+
+  const preloadWithRefresh = useCallback(async (rid: string, url?: string): Promise<boolean> => {
+    const tryLoad = (u: string) => new Promise<boolean>((resolve) => {
+      const img = new Image();
+      img.decoding = 'async' as any;
+      img.onload = () => { preloadedRef.current[u] = true; resolve(true); };
+      img.onerror = () => { preloadedRef.current[u] = false; resolve(false); };
+      img.src = u as string;
+    });
+    let candidate = url;
+    if (!candidate) candidate = await refreshImageUrlFor(rid);
+    if (!candidate) return false;
+    const ok = await tryLoad(candidate);
+    if (ok) return true;
+    const refreshed = await refreshImageUrlFor(rid);
+    if (refreshed && refreshed !== candidate) {
+      const ok2 = await tryLoad(refreshed);
+      return ok2;
+    }
+    return false;
+  }, [refreshImageUrlFor]);
+
   const loadData = async () => {
     try {
       setLoading(true);
       let table: ITable | null = null;
       if (config.tableId) table = await bitable.base.getTableById(config.tableId);
       if (!table) table = await bitable.base.getActiveTable();
+      tableRef.current = table;
 
       const selection = await bitable.base.getSelection();
       const viewId = config.viewId || selection.viewId || undefined;
@@ -464,6 +516,7 @@ function CarouselView({ config, isConfig }: { config: ICarouselConfig, isConfig:
       try {
         if (imageFieldId) imageField = await (table as any).getField(imageFieldId) as IAttachmentField;
       } catch (e) {}
+      imageFieldRef.current = imageField;
       try {
         if (timeFieldId) timeField = await (table as any).getField(timeFieldId);
       } catch (e) {}
@@ -533,15 +586,16 @@ function CarouselView({ config, isConfig }: { config: ICarouselConfig, isConfig:
             firstSlide = { id: firstId, title, desc, imageUrl };
             cacheRef.current[firstId] = firstSlide;
           }
-          if (firstSlide.imageUrl) {
-            await new Promise<void>((resolve) => {
-              const img = new Image();
-              img.decoding = 'async' as any;
-              img.onload = () => resolve();
-              img.onerror = () => resolve();
-              img.src = firstSlide.imageUrl as string;
-            });
-          }
+        if (firstSlide.imageUrl) {
+          const img = new Image();
+          img.decoding = 'async' as any;
+          img.onload = () => { preloadedRef.current[firstSlide.imageUrl as string] = true; };
+          img.onerror = async () => {
+            preloadedRef.current[firstSlide.imageUrl as string] = false;
+            await refreshImageUrlFor(firstSlide.id);
+          };
+          img.src = firstSlide.imageUrl as string;
+        }
         } catch (_) {}
         lastIdsRef.current = takeIds.slice();
         setSlides(firstSlide.id ? [firstSlide] : []);
@@ -621,24 +675,20 @@ function CarouselView({ config, isConfig }: { config: ICarouselConfig, isConfig:
     };
   }, [config.tableId, config.viewId, config.titleFieldId, config.descFieldId, config.imageFieldId, config.limit, config.refreshMs]);
 
-  const preloadedRef = useRef<Record<string, boolean>>({});
   useEffect(() => {
     if (!slides.length) return;
-    const candidates: (string | undefined)[] = [];
     const next = (index + 1) % slides.length;
     const next2 = (index + 2) % slides.length;
-    candidates.push(slides[index]?.imageUrl);
-    candidates.push(slides[next]?.imageUrl);
-    if (slides.length > 2) candidates.push(slides[next2]?.imageUrl);
-    for (const url of candidates) {
-      if (url && !preloadedRef.current[url]) {
-        const img = new Image();
-        img.decoding = 'async' as any;
-        img.onload = () => { preloadedRef.current[url!] = true; };
-        img.onerror = () => { preloadedRef.current[url!] = false; };
-        img.src = url as string;
+    const candidates: ISlide[] = [];
+    candidates.push(slides[index]);
+    candidates.push(slides[next]);
+    if (slides.length > 2) candidates.push(slides[next2]);
+    candidates.forEach(s => {
+      const u = s?.imageUrl;
+      if (s && u && preloadedRef.current[u] !== true) {
+        preloadWithRefresh(s.id, u);
       }
-    }
+    });
   }, [slides, index]);
 
   const planNext = useCallback(() => {
@@ -655,18 +705,12 @@ function CarouselView({ config, isConfig }: { config: ICarouselConfig, isConfig:
           planNext();
         }, delay);
       } else {
-        const img = new Image();
-        let proceeded = false;
-        const proceed = () => {
-          if (proceeded) return;
-          proceeded = true;
-          setIndex(next);
-          playTimeout.current = setTimeout(planNext, delay);
-        };
-        img.decoding = 'async' as any;
-        img.onload = proceed;
-        img.onerror = proceed;
-        img.src = url;
+        preloadWithRefresh(target.id, url).finally(() => {
+          playTimeout.current = setTimeout(() => {
+            setIndex(next);
+            planNext();
+          }, delay);
+        });
       }
     } else {
       playTimeout.current = setTimeout(() => {
@@ -704,11 +748,12 @@ function CarouselView({ config, isConfig }: { config: ICarouselConfig, isConfig:
   }
 
   const current = slides[index];
+  const showImage = current?.imageUrl ? preloadedRef.current[current.imageUrl] !== false : false;
 
   return (
     <div className='carousel-container'>
       <div className='carousel-slide' style={{ color }}>
-        {current.imageUrl ? <img className='carousel-image' src={current.imageUrl} decoding='async' loading='eager' {...({ fetchpriority: 'high' } as any)} /> : null}
+        {showImage ? <img className='carousel-image' src={current.imageUrl as string} decoding='async' loading='eager' {...({ fetchpriority: 'high' } as any)} onLoad={() => { if (current.imageUrl) preloadedRef.current[current.imageUrl] = true; }} onError={async () => { if (current.imageUrl) preloadedRef.current[current.imageUrl] = false; await refreshImageUrlFor(current.id); }} /> : null}
         {current.title ? <div className='carousel-title'>{current.title}</div> : null}
         {current.desc ? <div className='carousel-desc'>{current.desc}</div> : null}
       </div>
