@@ -141,3 +141,35 @@
 .grid-item .carousel-loading {
     height: 100%;
 }
+
+.grid-slider-root {
+    display: block;
+    overflow: hidden;
+    height: 100%;
+    --gap: 12px;
+}
+
+.grid-slider-inner {
+    display: flex;
+    gap: var(--gap);
+    height: 100%;
+    transform: translateX(0);
+    transition: transform 0.5s ease;
+}
+
+.grid-slider-inner.sliding {
+    transform: translateX(calc(-1 * (((100% - var(--gap) * (var(--cols) - 1)) / var(--cols)) + var(--gap))));
+}
+
+.grid-slide-item {
+    flex: 0 0 calc((100% - var(--gap) * (var(--cols) - 1)) / var(--cols));
+    height: 100%;
+}
+
+.grid-slide-item .carousel-container {
+    height: 100%;
+}
+
+.grid-slide-item .carousel-loading {
+    height: 100%;
+}

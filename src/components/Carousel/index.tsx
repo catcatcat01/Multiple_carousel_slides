@@ -289,42 +289,87 @@ function PagesManagerPanel({ t, appConfig, setAppConfig, currentPageId, setCurre
 
 function GridView({ pages, intervalMs }: { pages: IPageConfig[], intervalMs: number }) {
   const [start, setStart] = useState(0);
+  const [isAnimating, setIsAnimating] = useState(false);
+  const [slidingItems, setSlidingItems] = useState<IPageConfig[] | null>(null);
+  const animTimer = useRef<any>(null);
   const n = Math.min(4, pages.length || 0);
+
   useEffect(() => {
     setStart(0);
   }, [pages.length]);
+
   useEffect(() => {
     let timer: any;
-    if (pages.length > 4) {
+    if (pages.length >= 4) {
       timer = setInterval(() => {
-        setStart(s => (s + 1) % pages.length);
+        startSlide();
       }, Math.max(1000, intervalMs || 5000));
     }
     return () => {
       if (timer) clearInterval(timer);
+      if (animTimer.current) clearTimeout(animTimer.current);
     };
-  }, [pages.length, intervalMs]);
-  const visibleIndexSet = useMemo(() => {
-    const set = new Set<number>();
-    if (!pages.length) return set;
-    if (pages.length <= 4) {
-      for (let i = 0; i < pages.length; i++) set.add(i);
-      return set;
-    }
-    for (let i = 0; i < 4; i++) set.add((start + i) % pages.length);
-    return set;
-  }, [pages.length, start]);
+  }, [pages.length, intervalMs, start]);
+
+  const startSlide = useCallback(() => {
+    if (isAnimating || pages.length < 4) return;
+    const currentWindow: IPageConfig[] = [];
+    for (let i = 0; i < 4; i++) currentWindow.push(pages[(start + i) % pages.length]);
+    const nextPage = pages[(start + 4) % pages.length];
+    setSlidingItems([...currentWindow, nextPage]);
+    // allow render then animate
+    setTimeout(() => setIsAnimating(true), 50);
+    // after animation, commit new start and reset
+    animTimer.current = setTimeout(() => {
+      setIsAnimating(false);
+      setSlidingItems(null);
+      setStart(s => (s + 1) % pages.length);
+    }, 560); // animation duration (match CSS 0.5s + small buffer)
+  }, [isAnimating, pages, start]);
+
   const cls = useMemo(() => {
     if (n === 1) return 'grid-root grid-n-1';
     if (n === 2) return 'grid-root grid-n-2';
     if (n === 3) return 'grid-root grid-n-3';
     return 'grid-root grid-n-4';
   }, [n]);
+
+  // Render for <4 pages: simple grid
+  if (pages.length < 4) {
+    return (
+      <div className={cls}>
+        {pages.map((p) => (
+          <div key={p.id} className={'grid-item'}>
+            <CarouselView config={p} isConfig={false} active={true} />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  // Render for >4 pages: support sliding animation
+  if (slidingItems) {
+    // slidingItems length == 5
+    return (
+      <div className={cls + ' grid-slider-root'}>
+        <div className={classnames('grid-slider-inner', { 'sliding': isAnimating })} style={{ '--cols': 4 } as any}>
+          {slidingItems.map((p) => (
+            <div key={p.id} className='grid-slide-item'>
+              <CarouselView config={p} isConfig={false} active={true} />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // default render (static window)
+  const windowPages = Array.from({ length: 4 }).map((_, i) => pages[(start + i) % pages.length]);
   return (
     <div className={cls}>
-      {pages.map((p, i) => (
-        <div key={p.id} className={classnames('grid-item', { 'grid-item-hidden': !visibleIndexSet.has(i) })}>
-          <CarouselView config={p} isConfig={false} active={visibleIndexSet.has(i)} />
+      {windowPages.map((p) => (
+        <div key={p.id} className={'grid-item'}>
+          <CarouselView config={p} isConfig={false} active={true} />
         </div>
       ))}
     </div>
