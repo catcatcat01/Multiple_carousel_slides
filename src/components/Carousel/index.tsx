@@ -597,9 +597,12 @@ function CarouselView({ config, isConfig, active = true }: { config: ICarouselCo
       if (!fieldsMetaRef.current) {
         fieldsMetaRef.current = await (table as any).getFieldMetaList();
       }
-      const titleFieldId = config.titleFieldId || (fieldsMetaRef.current?.find(v => v.isPrimary)?.id);
+      const metas = fieldsMetaRef.current || [];
+      const titleFieldId = config.titleFieldId
+        || (metas.find((v: any) => v && (v as any).isPrimary)?.id)
+        || (metas.find((f: any) => f && (f as any).type !== FieldType.Attachment)?.id);
       const descFieldId = config.descFieldId;
-      const imageFieldId = config.imageFieldId || (fieldsMetaRef.current?.find(f => f.type === FieldType.Attachment)?.id);
+      const imageFieldId = config.imageFieldId || (metas.find((f: any) => f && (f as any).type === FieldType.Attachment)?.id);
       const timeFieldId = config.timeFieldId;
 
       if (titleFieldId && !titleFieldRef.current) {
@@ -858,7 +861,11 @@ function CarouselView({ config, isConfig, active = true }: { config: ICarouselCo
             {current.desc ? <div className='carousel-desc' style={{ fontSize: config.descFontSize ? `${config.descFontSize}px` : undefined }}>{current.desc}</div> : null}
           </>
         ) : (
-          isConfig && !showImage ? <div className='carousel-title' style={{ color }}>暂无数据或字段未配置</div> : (waitingContent ? <div className='carousel-title' style={{ color }}>加载中...</div> : (isImageError ? <div className='carousel-title' style={{ color }}>图片加载失败</div> : null))
+          isConfig && !showImage
+            ? <div className='carousel-title' style={{ color }}>{t('carousel.preview.empty') || '请配置数据源'}</div>
+            : (waitingContent
+                ? <div className='carousel-title' style={{ color }}>{t('carousel.preview.empty') || '请配置数据源'}</div>
+                : (isImageError ? <div className='carousel-title' style={{ color }}>图片加载失败</div> : null))
         )}
       </div>
       {config.showIndicators ? (
