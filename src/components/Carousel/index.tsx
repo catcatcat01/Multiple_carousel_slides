@@ -621,7 +621,7 @@ function CarouselView({ config, isConfig, active = true }: { config: ICarouselCo
       let sortedIds = recordIds.slice();
       const useViewOrderFast = !!config.preferViewOrder && !!viewId;
       if (timeFieldRef.current && !useViewOrderFast) {
-        const pairs: { id: string, ts: number }[] = await mapLimit(sortedIds, 8, async (rid) => {
+        const pairs: { id: string, ts: number }[] = await mapLimit(sortedIds, 12, async (rid) => {
           let ts = 0;
           try {
             const v = await (timeFieldRef.current as any).getValue(rid);
@@ -643,8 +643,10 @@ function CarouselView({ config, isConfig, active = true }: { config: ICarouselCo
       const cachedNow: ISlide[] = takeIds.map(rid => cacheRef.current[rid]).filter(Boolean) as ISlide[];
       if (cachedNow.length) {
         lastIdsRef.current = takeIds.slice();
-        setSlides(cachedNow);
-        setIndex(v => idsChanged ? 0 : Math.min(v, cachedNow.length ? cachedNow.length - 1 : 0));
+        if (!slides.length || cachedNow.length >= slides.length) {
+          setSlides(cachedNow);
+          setIndex(v => idsChanged ? 0 : Math.min(v, cachedNow.length ? cachedNow.length - 1 : 0));
+        }
         setLoading(false);
       } else {
         if (!slides.length && takeIds.length) {
@@ -678,12 +680,10 @@ function CarouselView({ config, isConfig, active = true }: { config: ICarouselCo
           }
         } catch (_) {}
         lastIdsRef.current = takeIds.slice();
-        setSlides(firstSlide.id ? [firstSlide] : []);
-        setIndex(0);
         setLoading(false);
       }
 
-      const result: ISlide[] = await mapLimit(takeIds, 8, async (rid) => {
+      const result: ISlide[] = await mapLimit(takeIds, 12, async (rid) => {
         const cached = cacheRef.current[rid];
         if (cached) return cached;
         try {
@@ -766,10 +766,12 @@ function CarouselView({ config, isConfig, active = true }: { config: ICarouselCo
     if (!slides.length) return;
     const next = (index + 1) % slides.length;
     const next2 = (index + 2) % slides.length;
+    const next3 = (index + 3) % slides.length;
     const candidates: ISlide[] = [];
     candidates.push(slides[index]);
     candidates.push(slides[next]);
     if (slides.length > 2) candidates.push(slides[next2]);
+    if (slides.length > 3) candidates.push(slides[next3]);
     candidates.forEach(s => {
       const u = s?.imageUrl;
       if (s && u && preloadedRef.current[u] !== true) {
