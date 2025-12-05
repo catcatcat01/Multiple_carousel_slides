@@ -45,6 +45,8 @@ interface ISlide {
   imageUrl?: string;
 }
 
+const imagePreloadCache: Record<string, boolean> = {};
+
 export default function Carousel(props: { bgColor: string }) {
   const { t } = useTranslation();
   
@@ -397,7 +399,7 @@ function CarouselView({ config, isConfig, active = true }: { config: ICarouselCo
   const cacheRef = useRef<Record<string, ISlide>>({});
   const tableRef = useRef<ITable | null>(null);
   const imageFieldRef = useRef<IAttachmentField | null>(null);
-  const preloadedRef = useRef<Record<string, boolean>>({});
+  const preloadedRef = useRef<Record<string, boolean>>(imagePreloadCache);
   const titleFieldRef = useRef<any>(null);
   const descFieldRef = useRef<any>(null);
   const timeFieldRef = useRef<any>(null);
@@ -768,7 +770,6 @@ function CarouselView({ config, isConfig, active = true }: { config: ICarouselCo
     const next2 = (index + 2) % slides.length;
     const next3 = (index + 3) % slides.length;
     const candidates: ISlide[] = [];
-    candidates.push(slides[index]);
     candidates.push(slides[next]);
     if (slides.length > 2) candidates.push(slides[next2]);
     if (slides.length > 3) candidates.push(slides[next3]);
