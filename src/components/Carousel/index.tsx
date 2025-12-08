@@ -359,18 +359,23 @@ function GridView({ pages, intervalMs }: { pages: IPageConfig[], intervalMs: num
 
   // Render for >4 pages: support sliding animation
   const windowPages = Array.from({ length: 4 }).map((_, i) => pages[(start + i) % pages.length]);
-  const nextPage = pages[(start + 4) % pages.length];
-  const renderPages = [...windowPages, nextPage];
+  const shouldAddNext = pages.length > 4;
+  const nextPage = shouldAddNext ? pages[(start + 4) % pages.length] : undefined;
+  const renderPages = shouldAddNext && nextPage ? [...windowPages, nextPage] : windowPages;
   const items = (slidingItems && slidingItems.length ? slidingItems : renderPages);
-  const showHiddenLast = !(slidingItems && slidingItems.length);
+  const showHiddenLast = shouldAddNext && !(slidingItems && slidingItems.length);
   return (
     <div className={cls + ' grid-slider-root'}>
       <div className={classnames('grid-slider-inner', { 'sliding': isAnimating })} style={{ '--cols': 4 } as any}>
-        {items.map((p, i) => (
-          <div key={`${p.id}-${i}`} className={classnames('grid-slide-item', { 'grid-item-hidden': showHiddenLast && i === 4 })}>
-            <CarouselView config={p} isConfig={false} active={true} />
-          </div>
-        ))}
+        {items.map((p, i) => {
+          const isDupNext = (i === 4 && items.length === 5 && items[4]?.id === items[0]?.id);
+          const key = isDupNext ? `${p.id}-next` : p.id;
+          return (
+            <div key={key} className={classnames('grid-slide-item', { 'grid-item-hidden': showHiddenLast && i === 4 })}>
+              <CarouselView config={p} isConfig={false} active={true} />
+            </div>
+          );
+        })}
       </div>
     </div>
   );
