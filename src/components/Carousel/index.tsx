@@ -46,6 +46,7 @@ interface ISlide {
 }
 
 const imagePreloadCache: Record<string, boolean> = {};
+const pageSlidesCache: Record<string, { slides: ISlide[], index: number }> = {};
 
 export default function Carousel(props: { bgColor: string }) {
   const { t } = useTranslation();
@@ -401,8 +402,26 @@ function CarouselView({ config, isConfig, active = true }: { config: ICarouselCo
   const fieldsMetaRef = useRef<IFieldMeta[] | null>(null);
   const tableIdRef = useRef<string | undefined>(undefined);
   const recordIdsCacheRef = useRef<{ ids: string[], viewId?: string, ts: number } | null>(null);
+  const pageId = (config as any).id as string | undefined;
 
   const color = config.color || 'var(--ccm-chart-N700)';
+
+  useEffect(() => {
+    if (pageId) {
+      const cached = pageSlidesCache[pageId];
+      if (cached && cached.slides && cached.slides.length) {
+        setSlides(cached.slides);
+        setIndex(Math.min(cached.index || 0, cached.slides.length - 1));
+        setLoading(false);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (pageId) {
+      pageSlidesCache[pageId] = { slides, index };
+    }
+  }, [slides, index, pageId]);
 
   const toPlainText = (val: any): string => {
     if (val === null || val === undefined) return '';
