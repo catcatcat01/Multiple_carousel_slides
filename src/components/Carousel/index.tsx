@@ -753,13 +753,11 @@ function CarouselView({ config, isConfig, active = true }: { config: ICarouselCo
 
   useEffect(() => {
     if (!slides.length) return;
-    const next = (index + 1) % slides.length;
-    const next2 = (index + 2) % slides.length;
-    const next3 = (index + 3) % slides.length;
     const candidates: ISlide[] = [];
-    candidates.push(slides[next]);
-    if (slides.length > 2) candidates.push(slides[next2]);
-    if (slides.length > 3) candidates.push(slides[next3]);
+    const count = Math.min(6, slides.length - 1);
+    for (let i = 1; i <= count; i++) {
+      candidates.push(slides[(index + i) % slides.length]);
+    }
     candidates.forEach(s => {
       const u = s?.imageUrl;
       if (s && u && preloadedRef.current[u] !== true) {
@@ -792,11 +790,19 @@ function CarouselView({ config, isConfig, active = true }: { config: ICarouselCo
           planNext();
         }, delay);
       } else {
-        preloadWithRefresh(target.id, url).finally(() => {
-          playTimeout.current = setTimeout(() => {
-            setIndex(next);
-            planNext();
-          }, delay);
+        const start = Date.now();
+        const maxWait = Math.max(delay * 2, 3000);
+        preloadWithRefresh(target.id, url).then((ok) => {
+          if (ok || (Date.now() - start >= maxWait)) {
+            playTimeout.current = setTimeout(() => {
+              setIndex(next);
+              planNext();
+            }, delay);
+          } else {
+            playTimeout.current = setTimeout(() => {
+              planNext();
+            }, 300);
+          }
         });
       }
     } else {
