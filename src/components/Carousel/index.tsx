@@ -358,30 +358,17 @@ function GridView({ pages, intervalMs }: { pages: IPageConfig[], intervalMs: num
   }
 
   // Render for >4 pages: support sliding animation
-  if (slidingItems) {
-    // slidingItems length == 5
-    return (
-      <div className={cls + ' grid-slider-root'}>
-        <div className={classnames('grid-slider-inner', { 'sliding': isAnimating })} style={{ '--cols': 4 } as any}>
-          {slidingItems.map((p) => (
-            <div key={p.id} className='grid-slide-item'>
-              <CarouselView config={p} isConfig={false} active={true} />
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  // default render (static window)
   const windowPages = Array.from({ length: 4 }).map((_, i) => pages[(start + i) % pages.length]);
+  const items = (slidingItems && slidingItems.length ? slidingItems : windowPages);
   return (
-    <div className={cls}>
-      {windowPages.map((p) => (
-        <div key={p.id} className={'grid-item'}>
-          <CarouselView config={p} isConfig={false} active={true} />
-        </div>
-      ))}
+    <div className={cls + ' grid-slider-root'}>
+      <div className={classnames('grid-slider-inner', { 'sliding': isAnimating })} style={{ '--cols': 4 } as any}>
+        {items.map((p) => (
+          <div key={p.id} className='grid-slide-item'>
+            <CarouselView config={p} isConfig={false} active={true} />
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
