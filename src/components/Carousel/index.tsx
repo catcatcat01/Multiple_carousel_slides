@@ -782,34 +782,29 @@ function CarouselView({ config, isConfig, active = true }: { config: ICarouselCo
     const next = (index + 1) % slides.length;
     clearTimeout(playTimeout.current);
     const target = slides[next];
+    const switchNow = () => {
+      setIndex(next);
+      playTimeout.current = setTimeout(planNext, delay);
+    };
     if (target.imageUrl) {
       const url = target.imageUrl as string;
-      if (preloadedRef.current[url]) {
-        playTimeout.current = setTimeout(() => {
-          setIndex(next);
-          planNext();
-        }, delay);
+      if (preloadedRef.current[url] === true) {
+        switchNow();
       } else {
         const start = Date.now();
         const maxWait = Math.max(delay * 2, 3000);
-        preloadWithRefresh(target.id, url).then((ok) => {
-          if (ok || (Date.now() - start >= maxWait)) {
-            playTimeout.current = setTimeout(() => {
-              setIndex(next);
-              planNext();
-            }, delay);
+        preloadWithRefresh(target.id, url).catch(() => {});
+        const checkReady = () => {
+          if (preloadedRef.current[url] === true || (Date.now() - start) >= maxWait) {
+            switchNow();
           } else {
-            playTimeout.current = setTimeout(() => {
-              planNext();
-            }, 300);
+            playTimeout.current = setTimeout(checkReady, 100);
           }
-        });
+        };
+        checkReady();
       }
     } else {
-      playTimeout.current = setTimeout(() => {
-        setIndex(next);
-        planNext();
-      }, delay);
+      switchNow();
     }
   }, [slides, index, config.intervalMs]);
 
