@@ -359,12 +359,15 @@ function GridView({ pages, intervalMs }: { pages: IPageConfig[], intervalMs: num
 
   // Render for >4 pages: support sliding animation
   const windowPages = Array.from({ length: 4 }).map((_, i) => pages[(start + i) % pages.length]);
-  const items = (slidingItems && slidingItems.length ? slidingItems : windowPages);
+  const nextPage = pages[(start + 4) % pages.length];
+  const renderPages = [...windowPages, nextPage];
+  const items = (slidingItems && slidingItems.length ? slidingItems : renderPages);
+  const showHiddenLast = !(slidingItems && slidingItems.length);
   return (
     <div className={cls + ' grid-slider-root'}>
       <div className={classnames('grid-slider-inner', { 'sliding': isAnimating })} style={{ '--cols': 4 } as any}>
-        {items.map((p) => (
-          <div key={p.id} className='grid-slide-item'>
+        {items.map((p, i) => (
+          <div key={`${p.id}-${i}`} className={classnames('grid-slide-item', { 'grid-item-hidden': showHiddenLast && i === 4 })}>
             <CarouselView config={p} isConfig={false} active={true} />
           </div>
         ))}
