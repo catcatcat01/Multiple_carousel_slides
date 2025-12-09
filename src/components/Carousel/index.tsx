@@ -413,6 +413,17 @@ function CarouselView({ config, isConfig, active = true }: { config: ICarouselCo
   const pageName = (config as any).name as string | undefined;
   const pageNamePosition = (config as any).pageNamePosition as ('top' | 'bottom') | undefined;
   const pageNameFontSize = (config as any).pageNameFontSize as number | undefined;
+  const isDefaultPageName = useMemo(() => {
+    const n = (pageName || '').trim();
+    if (!n) return true;
+    const placeholder = String(t('carousel.page') || '').trim().toLowerCase();
+    const lower = n.toLowerCase();
+    if (lower === placeholder) return true;
+    if (/^页面\d+$/.test(n)) return true;
+    if (/^page\s*\d+$/i.test(n)) return true;
+    if (n === '新页面') return true;
+    return false;
+  }, [pageName, t]);
 
   const color = config.color || 'var(--ccm-chart-N700)';
 
@@ -624,9 +635,7 @@ function CarouselView({ config, isConfig, active = true }: { config: ICarouselCo
         fieldsMetaRef.current = await (table as any).getFieldMetaList();
       }
       const metas = fieldsMetaRef.current || [];
-      const titleFieldId = config.titleFieldId
-        || (metas.find((v: any) => v && (v as any).isPrimary)?.id)
-        || (metas.find((f: any) => f && (f as any).type !== FieldType.Attachment)?.id);
+      const titleFieldId = config.titleFieldId || undefined;
       const descFieldId = config.descFieldId;
       const imageFieldId = config.imageFieldId || (metas.find((f: any) => f && (f as any).type === FieldType.Attachment)?.id);
       const timeFieldId = config.timeFieldId;
@@ -882,7 +891,7 @@ function CarouselView({ config, isConfig, active = true }: { config: ICarouselCo
   return (
     <div className='carousel-container'>
       <div className='carousel-slide' style={{ color }}>
-        {pageName && (pageNamePosition || 'top') === 'top' ? (
+        {pageName && !isDefaultPageName && (pageNamePosition || 'top') === 'top' ? (
           <div className='carousel-page-name' style={{ fontSize: pageNameFontSize ? `${pageNameFontSize}px` : undefined }}>{pageName}</div>
         ) : null}
         {showImage ? <img className='carousel-image' src={current.imageUrl as string} decoding='async' loading='eager' {...({ fetchpriority: 'high' } as any)} onLoad={() => { if (current.imageUrl) preloadedRef.current[current.imageUrl] = true; }} onError={async () => { if (current.imageUrl) preloadedRef.current[current.imageUrl] = false; await refreshImageUrlFor(current.id); }} /> : null}
@@ -898,7 +907,7 @@ function CarouselView({ config, isConfig, active = true }: { config: ICarouselCo
                 ? <div className='carousel-title' style={{ color }}>{t('carousel.preview.empty') || '请配置数据源'}</div>
                 : (isImageError ? <div className='carousel-title' style={{ color }}>图片加载失败</div> : null))
         )}
-        {pageName && (pageNamePosition || 'top') === 'bottom' ? (
+        {pageName && !isDefaultPageName && (pageNamePosition || 'top') === 'bottom' ? (
           <div className='carousel-page-name' style={{ fontSize: pageNameFontSize ? `${pageNameFontSize}px` : undefined }}>{pageName}</div>
         ) : null}
       </div>
