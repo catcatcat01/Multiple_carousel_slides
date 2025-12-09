@@ -26,6 +26,8 @@ interface ICarouselConfig {
   showIndicators: boolean;
   titleFontSize?: number;
   descFontSize?: number;
+  pageNamePosition?: 'top' | 'bottom';
+  pageNameFontSize?: number;
 }
 
 interface IPageConfig extends ICarouselConfig {
@@ -66,6 +68,7 @@ export default function Carousel(props: { bgColor: string }) {
         showIndicators: true,
         latestFirst: true,
         preferViewOrder: true,
+        pageNamePosition: 'top'
       }]
       ,
       groupIntervalMs: 5000
@@ -92,6 +95,7 @@ export default function Carousel(props: { bgColor: string }) {
         const n = Number(x);
         return isNaN(n) ? undefined : n;
       };
+      const parsePos = (x: any): 'top' | 'bottom' => (x === 'bottom' ? 'bottom' : 'top');
       const toPage = (raw: any, idx: number): IPageConfig => {
         const base: ICarouselConfig = {
           limit: raw?.limit ?? 10,
@@ -109,6 +113,8 @@ export default function Carousel(props: { bgColor: string }) {
           timeFieldId: normalize(raw?.timeFieldId),
           titleFontSize: parseNum(raw?.titleFontSize),
           descFontSize: parseNum(raw?.descFontSize),
+          pageNamePosition: parsePos(raw?.pageNamePosition),
+          pageNameFontSize: parseNum(raw?.pageNameFontSize),
         } as ICarouselConfig;
         return {
           id: String(raw?.id || `page-${idx + 1}`),
@@ -234,6 +240,7 @@ function PagesManagerPanel({ t, appConfig, setAppConfig, currentPageId, setCurre
       showIndicators: true,
       latestFirst: true,
       preferViewOrder: true,
+      pageNamePosition: 'top'
     } as IPageConfig;
     const next = { pages: [...pages, page], groupIntervalMs: appConfig.groupIntervalMs };
     setAppConfig(next);
@@ -403,6 +410,9 @@ function CarouselView({ config, isConfig, active = true }: { config: ICarouselCo
   const tableIdRef = useRef<string | undefined>(undefined);
   const recordIdsCacheRef = useRef<{ ids: string[], viewId?: string, ts: number } | null>(null);
   const pageId = (config as any).id as string | undefined;
+  const pageName = (config as any).name as string | undefined;
+  const pageNamePosition = (config as any).pageNamePosition as ('top' | 'bottom') | undefined;
+  const pageNameFontSize = (config as any).pageNameFontSize as number | undefined;
 
   const color = config.color || 'var(--ccm-chart-N700)';
 
@@ -872,6 +882,9 @@ function CarouselView({ config, isConfig, active = true }: { config: ICarouselCo
   return (
     <div className='carousel-container'>
       <div className='carousel-slide' style={{ color }}>
+        {pageName && (pageNamePosition || 'top') === 'top' ? (
+          <div className='carousel-page-name' style={{ fontSize: pageNameFontSize ? `${pageNameFontSize}px` : undefined }}>{pageName}</div>
+        ) : null}
         {showImage ? <img className='carousel-image' src={current.imageUrl as string} decoding='async' loading='eager' {...({ fetchpriority: 'high' } as any)} onLoad={() => { if (current.imageUrl) preloadedRef.current[current.imageUrl] = true; }} onError={async () => { if (current.imageUrl) preloadedRef.current[current.imageUrl] = false; await refreshImageUrlFor(current.id); }} /> : null}
         {hasText ? (
           <>
@@ -885,6 +898,9 @@ function CarouselView({ config, isConfig, active = true }: { config: ICarouselCo
                 ? <div className='carousel-title' style={{ color }}>{t('carousel.preview.empty') || '请配置数据源'}</div>
                 : (isImageError ? <div className='carousel-title' style={{ color }}>图片加载失败</div> : null))
         )}
+        {pageName && (pageNamePosition || 'top') === 'bottom' ? (
+          <div className='carousel-page-name' style={{ fontSize: pageNameFontSize ? `${pageNameFontSize}px` : undefined }}>{pageName}</div>
+        ) : null}
       </div>
       {config.showIndicators ? (
         <div className='carousel-indicators'>
@@ -941,6 +957,12 @@ function ConfigPanel({ t, config, setConfig, onSave }: { t: any, config: IPageCo
       <div className='form'>
         <Item label={'页面名称'}>
           <Input value={(config as any).name} onChange={(v) => setConfig({ ...config, name: String(v) } as any)} />
+        </Item>
+        <Item label={'页面名称位置'}>
+          <Select value={(config as any).pageNamePosition || 'top'} optionList={[{ label: '上方', value: 'top' }, { label: '下方', value: 'bottom' }]} onChange={(v) => setConfig({ ...config, pageNamePosition: (v as any) || 'top' } as any)} style={{ width: '100%' }} />
+        </Item>
+        <Item label={'页面名称字号(px)'}>
+          <InputNumber value={(config as any).pageNameFontSize} min={8} max={120} onChange={(v) => setConfig({ ...config, pageNameFontSize: Number(v) || undefined } as any)} style={{ width: '100%' }} />
         </Item>
         <Item label={t('carousel.label.table')}>
           <Select value={config.tableId} optionList={tables} onChange={(v) => setConfig({ ...config, tableId: v == null ? undefined : String(v) })} style={{ width: '100%' }} />
