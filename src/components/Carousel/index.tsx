@@ -244,7 +244,6 @@ function PagesManagerPanel({ t, appConfig, setAppConfig, currentPageId, setCurre
     } as IPageConfig;
     const next = { pages: [...pages, page], groupIntervalMs: appConfig.groupIntervalMs };
     setAppConfig(next);
-    dashboard.saveConfig({ customConfig: next, dataConditions: [] } as any);
     setCurrentPageId(id);
   };
 
@@ -261,7 +260,6 @@ function PagesManagerPanel({ t, appConfig, setAppConfig, currentPageId, setCurre
       const prevPages = prev.pages || [];
       const nextPages = prevPages.filter(p => p.id !== id);
       const next = { pages: nextPages, groupIntervalMs: prev.groupIntervalMs };
-      dashboard.saveConfig({ customConfig: next, dataConditions: [] } as any);
       if (currentPageId === id) {
         setCurrentPageId(nextPages.length ? nextPages[0].id : undefined);
       }
